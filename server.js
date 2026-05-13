@@ -1,6 +1,7 @@
 import express from 'express';
 import publicRoutes from './routes/public.js';
 import privateRoutes from './routes/private.js';
+import apiRoutes from './routes/api.js';
 import dotenv from 'dotenv';
 import { engine } from 'express-handlebars';
 import jwt from 'jsonwebtoken';
@@ -33,6 +34,7 @@ app.set('views', './views');
 //Configurações para rotas 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use('/api', apiRoutes);
 app.use('/', publicRoutes);
 app.use('/', privateRoutes);
 
