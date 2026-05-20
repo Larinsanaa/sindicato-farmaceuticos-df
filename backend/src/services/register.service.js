@@ -4,7 +4,13 @@ import { supabase } from '../config/config';
 
 
 class RegisterService {
-  async execute({ nome, email, senha }) {
+  async execute({ nome, email, senha, tipo = 'avaliador' }) {
+    // Validar se o tipo de usuário é válido
+    const tiposValidos = ['presidente', 'avaliador'];
+    if (!tiposValidos.includes(tipo)) {
+      throw new Error('Tipo de usuário inválido. Use "presidente" ou "avaliador".'); 
+    }
+
     const userExists = await supabase
         .from('usuario')
         .select('*')
@@ -21,7 +27,8 @@ class RegisterService {
     const user = await User.create({
       nome,
       email,
-      password: hashedPassword
+      password: hashedPassword,
+      tipo
     }); 
 
     // Remove a propriedade de senha do objeto resultante antes de devolvê-lo (por segurança)

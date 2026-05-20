@@ -32,9 +32,9 @@ class LoginService {
       expiresIn: '1h' 
     }); 
 
-    // Retorna os dados resumidos do perfil logado e o token gerado
+    // Retorna os dados resumidos do perfil logado, o tipo de usuário e o token gerado
     return {
-      user: { id: user.id, nome: user.nome, email: user.email },
+      user: { id: user.id, nome: user.nome, email: user.email, tipo: user.tipo },
       token
     }; 
   }
