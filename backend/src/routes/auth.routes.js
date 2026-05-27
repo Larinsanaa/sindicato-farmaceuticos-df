@@ -1,25 +1,28 @@
-import Router from 'express';
-const AuthController = require('../controllers/auth.controller');
-const authMiddleware = require('../middlewares/auth.middleware');
-import { checkRole } from '../middlewares/role.middleware';
+import express from 'express';
+import AuthController from '../controllers/auth.controller.js';
+import authMiddleware from '../middlewares/auth.middleware.js';
+import { checkRole } from '../middlewares/role.middleware.js';
+import UserController from '../controllers/user.controller.js';
 
-
-const routes = Router();
+const routes = express.Router();
 
 // Rota pública: recebe dados de novos usuários e aciona o método de cadastro do Controller
-routes.post('/register', AuthController.register); 
+routes.post('/register', AuthController.register);
+routes.post('/cadastro', AuthController.register);
 
 // Rota pública: recebe credenciais e aciona o método de login do Controller
-routes.post('/login', AuthController.login); 
+routes.post('/login', AuthController.login);
 
-// Rota Protegida: O 'authMiddleware' intercepta a requisição. 
+// Rota Protegida: O 'authMiddleware' intercepta a requisição.
 // Se o token for válido, permite o acesso ao bloco final que responde ao cliente.
 routes.get('/dashboard', authMiddleware, (req, res) => {
-  console.log(`Acesso autorizado para usuário ID: ${req.userId}`); // Debug: mostra o ID do usuário autenticado no console
-  return res.json({ 
-    message: `Bem-vindo ao painel! Seu ID de usuário autenticado é o ${req.userId}` 
+  console.log(`Acesso autorizado para usuário ID: ${req.userId}`);
+  return res.json({
+    message: `Bem-vindo ao painel! Seu ID de usuário autenticado é o ${req.userId}`
   });
 });
+
+routes.get('/meu-perfil', authMiddleware, checkRole('presidente', 'avaliador'), UserController.getProfile);
 
 // Exemplo: Rota protegida apenas para PRESIDENTE
 routes.get('/painel-presidente', authMiddleware, checkRole('presidente'), (req, res) => {
@@ -36,4 +39,4 @@ routes.get('/painel-geral', authMiddleware, checkRole('presidente', 'avaliador')
   return res.json({ message: 'Bem-vindo ao painel geral!' });
 });
 
-module.exports = routes;
+export default routes;
