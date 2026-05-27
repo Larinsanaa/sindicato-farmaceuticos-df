@@ -26,12 +26,12 @@ export default function NovaAvaliacao() {
         evento.preventDefault();
 
         if (!cnpjCompleto) {
-            setAviso('Informe os 14 numeros do CNPJ para localizar a farmacia.');
+            setAviso('Informe os 14 números do CNPJ para localizar a farmácia.');
             return;
         }
 
         if (!validarCnpj(cnpj)) {
-            setAviso('CNPJ invalido. Verifique os numeros informados.');
+            setAviso('CNPJ inválido. Verifique os números informados.');
             return;
         }
 
@@ -44,7 +44,7 @@ export default function NovaAvaliacao() {
         setAviso('');
 
         if (!navigator.geolocation) {
-            setAviso('Este navegador nao permite validar a localizacao.');
+            setAviso('Este navegador não permite validar a localização.');
             return;
         }
 
@@ -57,7 +57,7 @@ export default function NovaAvaliacao() {
             },
             () => {
                 setCarregandoLocalizacao(false);
-                setAviso('Ative a localizacao do celular para confirmar que voce esta na farmacia.');
+                setAviso('Ative a localização do celular para confirmar que você está na farmácia.');
             },
             {
                 enableHighAccuracy: true,
@@ -79,7 +79,7 @@ export default function NovaAvaliacao() {
             <div className="mx-auto flex max-w-md flex-col gap-4 px-4 py-4 pb-8 sm:max-w-2xl sm:px-6">
                 <button className="flex w-fit items-center gap-2 rounded-md px-1 py-2 text-sm font-bold text-blue-900" type="button" onClick={() => (etapa === 'busca' ? navigate('/dashboard') : setEtapa('busca'))}>
                     <ArrowLeft className="h-4 w-4" />
-                    Nova avaliacao
+                    Nova avaliação
                 </button>
 
                 {aviso && (
@@ -92,10 +92,10 @@ export default function NovaAvaliacao() {
                 {etapa === 'busca' && (
                     <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
                         <div className="mb-5">
-                            <p className="text-xs font-bold uppercase text-blue-900/70">Nova avaliacao</p>
-                            <h1 className="mt-2 text-2xl font-extrabold text-blue-950">Pesquisar farmacia</h1>
+                            <p className="text-xs font-bold uppercase text-blue-900/70">Nova avaliação</p>
+                            <h1 className="mt-2 text-2xl font-extrabold text-blue-950">Pesquisar farmácia</h1>
                             <p className="mt-2 text-sm leading-6 text-slate-600">
-                                Informe o CNPJ da farmacia antes de validar sua localizacao.
+                                Informe o CNPJ da farmácia antes de validar sua localização.
                             </p>
                         </div>
 
@@ -115,7 +115,7 @@ export default function NovaAvaliacao() {
                             </label>
 
                             <button className="h-12 w-full rounded-md bg-blue-700 text-sm font-extrabold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-60" type="submit" disabled={!cnpjCompleto}>
-                                Buscar farmacia
+                                Buscar farmácia
                             </button>
                         </form>
                     </section>
@@ -126,20 +126,20 @@ export default function NovaAvaliacao() {
                         <MapaIlustrado />
 
                         <div className="p-5">
-                            <h1 className="text-2xl font-extrabold text-blue-950">Validar localizacao</h1>
+                            <h1 className="text-2xl font-extrabold text-blue-950">Validar localização</h1>
                             <p className="mt-2 text-sm leading-6 text-slate-600">
-                                A avaliacao so pode ser iniciada depois de confirmar a localizacao do avaliador.
+                                A avaliação só pode ser iniciada depois de confirmar a localização do avaliador.
                             </p>
 
                             <FarmaciaResumo farmacia={farmacia} />
 
                             <button className="mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-md bg-blue-700 text-sm font-extrabold text-white hover:bg-blue-800 disabled:cursor-wait disabled:opacity-70" type="button" onClick={solicitarLocalizacao} disabled={carregandoLocalizacao}>
                                 {carregandoLocalizacao ? <Loader2 className="h-5 w-5 animate-spin" /> : <LocateFixed className="h-5 w-5" />}
-                                {carregandoLocalizacao ? 'Validando...' : 'Confirmar localizacao'}
+                                {carregandoLocalizacao ? 'Validando...' : 'Confirmar localização'}
                             </button>
 
                             <button className="mt-3 h-11 w-full rounded-md border border-slate-200 text-sm font-bold text-slate-700 hover:border-sky-300 hover:text-sky-700" type="button" onClick={usarLocalizacaoTeste}>
-                                Usar localizacao de teste
+                                Usar localização de teste
                             </button>
                         </div>
                     </section>
@@ -181,7 +181,7 @@ function MapaIlustrado() {
                 <MapPin className="h-6 w-6" />
             </div>
             <div className="absolute bottom-4 left-4 rounded-md bg-white/95 px-3 py-2 text-xs font-bold text-blue-950 shadow-sm">
-                Localizacao da farmacia
+                Localização da farmácia
             </div>
         </div>
     );

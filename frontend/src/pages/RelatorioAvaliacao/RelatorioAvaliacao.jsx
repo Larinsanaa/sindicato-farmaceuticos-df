@@ -15,7 +15,7 @@ export default function RelatorioAvaliacao() {
             <main className="min-h-dvh bg-slate-50 text-slate-900">
                 <Cabecalho textoBotao="Dashboard" onClick={() => navigate('/dashboard')} />
                 <div className="mx-auto max-w-md px-4 py-6">
-                    <p className="rounded-lg border border-slate-200 bg-white p-5 text-sm font-semibold text-slate-600 shadow-sm">Relatorio nao encontrado.</p>
+                    <p className="rounded-lg border border-slate-200 bg-white p-5 text-sm font-semibold text-slate-600 shadow-sm">Relatório não encontrado.</p>
                 </div>
             </main>
         );
@@ -28,7 +28,7 @@ export default function RelatorioAvaliacao() {
             <div className="mx-auto flex max-w-md flex-col gap-4 px-4 py-4 pb-8 sm:max-w-2xl sm:px-6">
                 <button className="flex w-fit items-center gap-2 rounded-md px-1 py-2 text-sm font-bold text-blue-900" type="button" onClick={() => navigate('/historico-avaliacoes')}>
                     <ArrowLeft className="h-4 w-4" />
-                    Relatorio {avaliacao.farmacia}
+                    Relatório {avaliacao.farmacia}
                 </button>
 
                 <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
@@ -43,9 +43,9 @@ export default function RelatorioAvaliacao() {
                     </div>
 
                     <div className="mt-6 rounded-lg border border-slate-200 bg-slate-50 p-4">
-                        <h2 className="text-base font-extrabold text-blue-950">Resumo da Avaliacao</h2>
+                        <h2 className="text-base font-extrabold text-blue-950">Resumo da Avaliação</h2>
                         <div className="mt-3 flex items-center gap-2 text-sm text-slate-700">
-                            <span>Nota Geral:</span>
+                            <span>Nota geral:</span>
                             <strong className="text-amber-700">{avaliacao.classificacao}</strong>
                             <span>- {avaliacao.notaGeral}</span>
                         </div>
@@ -62,11 +62,11 @@ export default function RelatorioAvaliacao() {
                     <div className="mt-5 grid gap-3">
                         <button className="flex h-12 items-center justify-center gap-2 rounded-md bg-blue-700 text-sm font-extrabold text-white hover:bg-blue-800" type="button">
                             <Download className="h-5 w-5" />
-                            Exportar relatorio
+                            Exportar relatório
                         </button>
                         <button className="flex h-12 items-center justify-center gap-2 rounded-md border border-slate-200 text-sm font-extrabold text-blue-700 hover:border-sky-300" type="button">
                             <Send className="h-5 w-5" />
-                            Reenviar relatorio
+                            Reenviar relatório
                         </button>
                     </div>
                 </section>

@@ -32,7 +32,7 @@ export default function Login() {
         const resultado = await resposta.json();
 
         if (!resposta.ok) {
-            throw new Error(resultado.error || 'Nao foi possivel concluir.');
+            throw new Error(resultado.error || 'Não foi possível concluir.');
         }
 
         return resultado;
@@ -103,7 +103,7 @@ export default function Login() {
                             Sistema do Sincofarma-DF
                         </h1>
                         <p className="mt-5 max-w-xl text-base leading-7 text-blue-950/75">
-                            Acesse sua conta para usar o sistema de avaliacoes de farmacias.
+                            Acesse sua conta para usar o sistema de avaliações de farmácias.
                         </p>
                     </div>
 
@@ -116,7 +116,7 @@ export default function Login() {
                                 </div>
 
                                 <Campo texto="Nome completo" icone={<UserRound />} valor={cadastro.nome} onChange={(e) => setCadastro({ ...cadastro, nome: e.target.value })} />
-                                <Campo texto="Email" tipo="email" icone={<Mail />} valor={cadastro.email} onChange={(e) => setCadastro({ ...cadastro, email: e.target.value })} />
+                                <Campo texto="E-mail" tipo="email" icone={<Mail />} valor={cadastro.email} onChange={(e) => setCadastro({ ...cadastro, email: e.target.value })} />
                                 <Campo texto="Senha" tipo={mostrarSenha ? 'text' : 'password'} icone={<Lock />} valor={cadastro.senha} onChange={(e) => setCadastro({ ...cadastro, senha: e.target.value })} />
                                 <Campo texto="Confirmar senha" tipo={mostrarSenha ? 'text' : 'password'} icone={<Lock />} valor={cadastro.confirmarSenha} onChange={(e) => setCadastro({ ...cadastro, confirmarSenha: e.target.value })} />
 
@@ -125,7 +125,7 @@ export default function Login() {
                                 </button>
 
                                 <button className="text-sm font-semibold text-blue-700 underline" type="button" onClick={() => mudarTela('login')}>
-                                    Ja tenho conta
+                                    Já tenho conta
                                 </button>
                             </form>
                         ) : (
@@ -135,7 +135,7 @@ export default function Login() {
                                     <p className="mt-2 text-sm text-slate-500">Acesse sua conta.</p>
                                 </div>
 
-                                <Campo texto="Email" tipo="email" icone={<Mail />} valor={login.email} onChange={(e) => setLogin({ ...login, email: e.target.value })} />
+                                <Campo texto="E-mail" tipo="email" icone={<Mail />} valor={login.email} onChange={(e) => setLogin({ ...login, email: e.target.value })} />
 
                                 <Campo texto="Senha" tipo={mostrarSenha ? 'text' : 'password'} icone={<Lock />} valor={login.senha} onChange={(e) => setLogin({ ...login, senha: e.target.value })}>
                                     <button className="absolute right-3 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-md text-slate-500 hover:bg-slate-100" type="button" onClick={() => setMostrarSenha(!mostrarSenha)}>

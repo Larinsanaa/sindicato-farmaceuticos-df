@@ -81,31 +81,40 @@ export default function Dashboard() {
                 <div className="space-y-4 lg:space-y-6">
                     <aside className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm lg:h-fit lg:p-4">
                         <div className="mb-3 rounded-md bg-slate-50 p-3">
-                            <p className="text-xs font-semibold uppercase text-slate-500">Usuario</p>
-                            <p className="mt-1 text-sm font-bold text-slate-900">{usuario?.nome || 'Usuario'}</p>
+                            <p className="text-xs font-semibold uppercase text-slate-500">Usuário</p>
+                            <p className="mt-1 text-sm font-bold text-slate-900">{usuario?.nome || 'Usuário'}</p>
                             <p className="break-all text-xs text-slate-500">{usuario?.email || 'email@email.com'}</p>
                         </div>
 
-                        <nav className="grid grid-cols-5 gap-2 lg:block lg:space-y-1" aria-label="Menu principal">
-                            <MenuItem ativo icone={<Home />} texto="Inicio" />
-                            <MenuItem icone={<Store />} texto="Farmacias" textoMobile="Farm." />
-                            <MenuItem icone={<ClipboardCheck />} texto="Avaliacoes" textoMobile="Aval." onClick={() => navigate('/historico-avaliacoes')} />
+                        <nav className="grid grid-cols-3 gap-2 lg:block lg:space-y-1" aria-label="Menu principal">
+                            <MenuItem ativo icone={<Home />} texto="Início" />
+                            <MenuItem icone={<Store />} texto="Farmácias" textoMobile="Farm." />
+                            <MenuItem icone={<ClipboardCheck />} texto="Avaliações" textoMobile="Aval." onClick={() => navigate('/historico-avaliacoes')} />
+                            <MenuItem icone={<PlusCircle />} texto="Nova avaliação" textoMobile="Nova av." onClick={() => navigate('/nova-avaliacao')} />
                             <MenuItem icone={<UserRound />} texto="Perfil" />
                             <MenuItem icone={<Settings />} texto="Config" />
                         </nav>
 
-                        <button className="mt-3 hidden w-full items-center gap-2 rounded-md px-3 py-2 text-sm font-semibold text-red-600 hover:bg-red-50 lg:flex" type="button" onClick={sair}>
-                            <LogOut className="h-4 w-4" />
-                            Sair
-                        </button>
+                        <MenuItem
+                            className="mt-3 hidden lg:flex"
+                            danger
+                            icone={<LogOut />}
+                            texto="Sair"
+                            onClick={sair}
+                        />
                     </aside>
 
                     {mostrarFiltros && (
                         <aside className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm lg:p-4" id="filtros-dashboard">
                             <div className="mb-3 flex items-center justify-between gap-3">
                                 <h3 className="text-sm font-extrabold text-slate-900">Filtros</h3>
-                                <button className="flex items-center gap-1 text-xs font-bold text-blue-700 hover:text-blue-900" type="button" onClick={limparFiltros} aria-label="Limpar todos os filtros">
-                                    <X className="h-3.5 w-3.5" />
+                                <button
+                                    className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-1.5 py-0.5 text-[10px] font-bold text-slate-700 shadow-sm transition hover:border-sky-300 hover:bg-sky-50 hover:text-blue-800 focus:outline-none focus:ring-4 focus:ring-sky-100"
+                                    type="button"
+                                    onClick={limparFiltros}
+                                    aria-label="Limpar todos os filtros"
+                                >
+                                    <X className="h-2.5 w-2.5" />
                                     Limpar
                                 </button>
                             </div>
@@ -117,7 +126,7 @@ export default function Dashboard() {
                                 <FiltroData label="Data final" value={filtros.dataFim} onChange={(valor) => alterarFiltro('dataFim', valor)} />
 
                                 <label className="block">
-                                    <span className="mb-1.5 block text-xs font-bold uppercase text-slate-500">Nota minima</span>
+                                    <span className="mb-1.5 block text-xs font-bold uppercase text-slate-500">Nota mínima</span>
                                     <select className="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm outline-none focus:border-sky-500 focus:ring-4 focus:ring-sky-100" value={filtros.notaMinima} onChange={(evento) => alterarFiltro('notaMinima', evento.target.value)}>
                                         <option value="">Todas</option>
                                         <option value="3">3,0+</option>
@@ -137,26 +146,26 @@ export default function Dashboard() {
                             <div>
                                 <h1 className="text-2xl font-extrabold leading-tight text-blue-950 sm:text-3xl">Bem-vindo(a)</h1>
                                 <p className="mt-2 text-sm leading-6 text-slate-600">
-                                    Acompanhe as farmacias e avaliacoes cadastradas no sistema.
+                                    Acompanhe as farmácias e avaliações cadastradas no sistema.
                                 </p>
                             </div>
                             <button className="hidden rounded-md bg-blue-700 px-4 py-2 text-sm font-bold text-white hover:bg-blue-800 sm:inline-flex" type="button" onClick={() => navigate('/nova-avaliacao')}>
-                                Nova avaliacao
+                                Nova avaliação
                             </button>
                         </div>
                     </section>
 
                     <section className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                        <Card titulo="Avaliacoes" valor="200" />
-                        <Card titulo="Farmacias" valor="12" />
-                        <Card titulo="Media geral" valor="3,7" estrela destaque />
+                        <Card titulo="Avaliações" valor="200" />
+                        <Card titulo="Farmácias" valor="12" />
+                        <Card titulo="Média geral" valor="3,7" estrela destaque />
                     </section>
 
                     <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
                         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                             <div>
-                                <h2 className="text-lg font-extrabold text-slate-900 sm:text-xl">Ultimas farmacias</h2>
-                                <p className="text-sm text-slate-500">Dados temporarios para montar a tela.</p>
+                                <h2 className="text-lg font-extrabold text-slate-900 sm:text-xl">Últimas farmácias</h2>
+                                <p className="text-sm text-slate-500">Dados temporários para montar a tela.</p>
                             </div>
                             <span className="rounded-md border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-bold text-slate-600" aria-live="polite">
                                 {farmaciasFiltradas.length} de {avaliacoes.length}
@@ -169,10 +178,10 @@ export default function Dashboard() {
                             </button>
                             <div className="h-8 w-px bg-slate-200" />
                             <label className="relative block min-w-0 flex-1">
-                                <span className="sr-only">Buscar farmacia, cidade ou data</span>
+                                    <span className="sr-only">Buscar farmácia, cidade ou data</span>
                                 <input
                                     className="h-9 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-sky-500 focus:ring-4 focus:ring-sky-100"
-                                    placeholder="Buscar farmacia, cidade ou data"
+                                    placeholder="Buscar farmácia, cidade ou data"
                                     value={buscaFarmacia}
                                     onChange={(evento) => setBuscaFarmacia(evento.target.value)}
                                 />
@@ -187,13 +196,13 @@ export default function Dashboard() {
 
                         <div className="hidden overflow-x-auto sm:block">
                             <table className="w-full min-w-[680px] text-left text-sm">
-                                <caption className="sr-only">Ultimas farmacias avaliadas. Clique em uma linha para abrir o relatorio da avaliacao.</caption>
+                                <caption className="sr-only">Últimas farmácias avaliadas. Clique em uma linha para abrir o relatório da avaliação.</caption>
                                 <thead className="border-b border-slate-200 text-slate-500">
                                     <tr>
-                                        <th className="w-[30%] px-3 py-3 font-bold" scope="col">Farmacia</th>
+                                        <th className="w-[30%] px-3 py-3 font-bold" scope="col">Farmácia</th>
                                         <th className="w-[15%] px-3 py-3 font-bold" scope="col">Cidade</th>
                                         <th className="w-[20%] px-3 py-3 font-bold" scope="col">Avaliador</th>
-                                        <th className="w-[12%] px-3 py-3 text-center font-bold" scope="col">Media</th>
+                                        <th className="w-[12%] px-3 py-3 text-center font-bold" scope="col">Média</th>
                                         <th className="w-[23%] px-3 py-3 font-bold" scope="col">Avaliado em</th>
                                     </tr>
                                 </thead>
@@ -206,7 +215,7 @@ export default function Dashboard() {
                                             onKeyDown={(evento) => abrirRelatorioComTeclado(evento, farmacia.id)}
                                             role="button"
                                             tabIndex={0}
-                                            aria-label={`Abrir relatorio de ${farmacia.farmacia}, avaliada por ${farmacia.avaliador} em ${farmacia.dataTexto}`}
+                                            aria-label={`Abrir relatório de ${farmacia.farmacia}, avaliada por ${farmacia.avaliador} em ${farmacia.dataTexto}`}
                                         >
                                             <td className="px-3 py-3">
                                                 <p className="font-semibold text-slate-800">{farmacia.farmacia}</p>
@@ -224,7 +233,7 @@ export default function Dashboard() {
 
                         {farmaciasFiltradas.length === 0 && (
                             <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-5 text-center text-sm font-semibold text-slate-500">
-                                Nenhuma farmacia encontrada.
+                                Nenhuma farmácia encontrada.
                             </div>
                         )}
                     </section>
@@ -237,15 +246,21 @@ export default function Dashboard() {
                 onClick={() => navigate('/nova-avaliacao')}
             >
                 <PlusCircle className="h-5 w-5" />
-                Nova avaliacao
+                Nova avaliação
             </button>
         </main>
     );
 }
 
-function MenuItem({ icone, texto, textoMobile, ativo = false, onClick }) {
+function MenuItem({ icone, texto, textoMobile, ativo = false, danger = false, onClick, className = '' }) {
+    const estiloBase = danger
+        ? 'text-red-600 hover:bg-red-50'
+        : ativo
+            ? 'bg-blue-700 text-white'
+            : 'text-slate-600 hover:bg-slate-100';
+
     return (
-        <button className={`flex min-h-14 w-full flex-col items-center justify-center gap-1 rounded-md px-1 py-2 text-center text-[10px] font-semibold leading-tight lg:min-h-10 lg:flex-row lg:justify-start lg:gap-2 lg:px-3 lg:text-left lg:text-sm ${ativo ? 'bg-blue-700 text-white' : 'text-slate-600 hover:bg-slate-100'}`} type="button" onClick={onClick} aria-current={ativo ? 'page' : undefined}>
+        <button className={`flex min-h-14 w-full flex-col items-center justify-center gap-1 rounded-md px-1 py-2 text-center text-[10px] font-semibold leading-tight lg:min-h-10 lg:flex-row lg:justify-start lg:gap-2 lg:px-3 lg:text-left lg:text-sm ${estiloBase} ${className}`} type="button" onClick={onClick} aria-current={ativo ? 'page' : undefined}>
             <span className="flex h-5 w-5 shrink-0 items-center justify-center [&_svg]:h-4 [&_svg]:w-4">
                 {icone}
             </span>

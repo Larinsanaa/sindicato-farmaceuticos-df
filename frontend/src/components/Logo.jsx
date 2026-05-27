@@ -7,7 +7,7 @@ export default function Logo() {
             </div>
             <div>
                 <strong className="block text-sm font-extrabold uppercase text-slate-900">Sindicato</strong>
-                <span className="text-xs font-medium text-slate-500">Farmaceuticos DF</span>
+                <span className="text-xs font-medium text-slate-500">Farmacêuticos DF</span>
             </div>
         </div>
     );

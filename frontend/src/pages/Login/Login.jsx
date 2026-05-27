@@ -55,7 +55,7 @@ export default function Login() {
         const resultado = await resposta.json();
 
         if (!resposta.ok) {
-            throw new Error(resultado.error || 'Nao foi possivel concluir.');
+            throw new Error(resultado.error || 'Não foi possível concluir.');
         }
 
         return resultado;
@@ -133,7 +133,7 @@ export default function Login() {
                         </div>
                         <div>
                             <strong className="block text-sm font-extrabold uppercase text-slate-900">Sindicato</strong>
-                            <span className="text-xs font-medium text-slate-500">Farmaceuticos DF</span>
+                            <span className="text-xs font-medium text-slate-500">Farmacêuticos DF</span>
                         </div>
                     </div>
 
@@ -154,10 +154,10 @@ export default function Login() {
                     <div className="max-w-2xl pt-8 lg:pt-0">
                         <p className="mb-4 text-sm font-bold uppercase text-blue-950/70">Portal web</p>
                         <h1 className="max-w-xl text-4xl font-extrabold leading-tight text-blue-950 sm:text-5xl">
-                            Sistema de avaliaÃ§Ãµes da Sincofarma-DF
+                            Sistema de avaliações da Sincofarma-DF
                         </h1>
                         <p className="mt-5 max-w-xl text-base leading-7 text-blue-950/75">
-                            Acesse sua conta para usar o sistema de avaliacoes de farmacias.
+                            Acesse sua conta para usar o sistema de avaliações de farmácias.
                         </p>
                     </div>
 
@@ -166,12 +166,12 @@ export default function Login() {
                             <div className="space-y-5">
                                 <div>
                                     <h2 className="text-2xl font-extrabold text-slate-900">Login realizado</h2>
-                                    <p className="mt-2 text-sm text-slate-500">Voce entrou no sistema.</p>
+                                    <p className="mt-2 text-sm text-slate-500">Você entrou no sistema.</p>
                                 </div>
 
                                 <div className="rounded-md border border-slate-200 bg-slate-50 p-4">
-                                    <p className="text-sm font-semibold text-slate-700">Usuario</p>
-                                    <p className="mt-1 text-sm text-slate-600">{usuarioLogado.nome || 'Usuario'}</p>
+                                    <p className="text-sm font-semibold text-slate-700">Usuário</p>
+                                    <p className="mt-1 text-sm text-slate-600">{usuarioLogado.nome || 'Usuário'}</p>
                                     <p className="text-sm text-slate-500">{usuarioLogado.email}</p>
                                 </div>
 
@@ -195,7 +195,7 @@ export default function Login() {
                                 </label>
 
                                 <label className="block">
-                                    <span className="mb-2 block text-sm font-semibold text-slate-700">Email</span>
+                                    <span className="mb-2 block text-sm font-semibold text-slate-700">E-mail</span>
                                     <div className="relative">
                                         <Mail className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                                         <input className="h-12 w-full rounded-md border border-slate-200 pl-11 pr-4 text-sm shadow-sm outline-none focus:border-sky-500 focus:ring-4 focus:ring-sky-100" type="email" value={cadastro.email} onChange={(e) => setCadastro({ ...cadastro, email: e.target.value })} required />
@@ -223,7 +223,7 @@ export default function Login() {
                                 </button>
 
                                 <button className="text-sm font-semibold text-blue-700 underline" type="button" onClick={() => mudarTela('login')}>
-                                    Ja tenho conta
+                                    Já tenho conta
                                 </button>
                             </form>
                         ) : (
@@ -234,7 +234,7 @@ export default function Login() {
                                 </div>
 
                                 <label className="block">
-                                    <span className="mb-2 block text-sm font-semibold text-slate-700">Email</span>
+                                    <span className="mb-2 block text-sm font-semibold text-slate-700">E-mail</span>
                                     <div className="relative">
                                         <Mail className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                                         <input className="h-12 w-full rounded-md border border-slate-200 pl-11 pr-4 text-sm shadow-sm outline-none focus:border-sky-500 focus:ring-4 focus:ring-sky-100" type="email" value={login.email} onChange={(e) => setLogin({ ...login, email: e.target.value })} required />

@@ -29,7 +29,7 @@ export default function HistoricoAvaliacoes() {
             <div className="mx-auto flex max-w-md flex-col gap-4 px-4 py-4 pb-8 sm:max-w-3xl sm:px-6">
                 <button className="flex w-fit items-center gap-2 rounded-md px-1 py-2 text-sm font-bold text-blue-900" type="button" onClick={() => navigate('/dashboard')}>
                     <ArrowLeft className="h-4 w-4" />
-                    Historico de Avaliacoes
+                    Histórico de Avaliações
                 </button>
 
                 <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
@@ -102,7 +102,7 @@ export default function HistoricoAvaliacoes() {
 
                     {avaliacoesFiltradas.length === 0 && (
                         <div className="rounded-lg border border-dashed border-slate-300 bg-white p-6 text-center text-sm font-semibold text-slate-500">
-                            Nenhuma avaliacao encontrada.
+                            Nenhuma avaliação encontrada.
                         </div>
                     )}
                 </section>
