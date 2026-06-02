@@ -1,8 +1,9 @@
-import { useState } from 'react';
+﻿import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Eye, EyeOff, Lock, Mail, UserRound } from 'lucide-react';
+import { Eye, EyeOff, Lock, Mail, ShieldCheck, UserRound } from 'lucide-react';
 import Cabecalho from '../components/Cabecalho.jsx';
 import TopoOndas from '../components/TopoOndas.jsx';
+import { apiFetch, limparSessao, salvarSessao } from '../lib/api.js';
 
 export default function Login() {
     const navigate = useNavigate();
@@ -11,31 +12,16 @@ export default function Login() {
     const [carregando, setCarregando] = useState(false);
     const [mensagem, setMensagem] = useState('');
     const [erro, setErro] = useState(false);
+    const [tipoLogin, setTipoLogin] = useState('avaliador');
 
     const [login, setLogin] = useState({ email: '', senha: '' });
-    const [cadastro, setCadastro] = useState({ nome: '', email: '', senha: '', confirmarSenha: '' });
+    const [cadastro, setCadastro] = useState({ nome: '', email: '', senha: '', confirmarSenha: '', tipo: 'avaliador' });
 
     function mudarTela(novaTela) {
         setTela(novaTela);
         setMensagem('');
         setErro(false);
         setMostrarSenha(false);
-    }
-
-    async function enviarDados(url, dados) {
-        const resposta = await fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(dados)
-        });
-
-        const resultado = await resposta.json();
-
-        if (!resposta.ok) {
-            throw new Error(resultado.error || 'Não foi possível concluir.');
-        }
-
-        return resultado;
     }
 
     async function entrar(evento) {
@@ -45,10 +31,22 @@ export default function Login() {
         setErro(false);
 
         try {
-            const resultado = await enviarDados('/api/login', login);
+            const resultado = await apiFetch('/api/login', {
+                method: 'POST',
+                body: JSON.stringify(login)
+            });
 
-            localStorage.setItem('sindicato_token', resultado.token);
-            localStorage.setItem('sindicato_usuario', JSON.stringify(resultado.usuario));
+            const usuario = resultado.user || resultado.usuario;
+
+            if (!usuario) {
+                throw new Error('Falha ao identificar o usuário autenticado.');
+            }
+
+            if (usuario.tipo !== tipoLogin) {
+                throw new Error(`Este acesso é de ${usuario.tipo === 'presidente' ? 'administrador' : 'avaliador'}. Selecione o perfil correto.`);
+            }
+
+            salvarSessao(resultado.token, usuario);
             navigate('/dashboard');
         } catch (error) {
             setErro(true);
@@ -72,13 +70,17 @@ export default function Login() {
         setErro(false);
 
         try {
-            await enviarDados('/api/cadastro', {
-                nome: cadastro.nome,
-                email: cadastro.email,
-                senha: cadastro.senha
+            await apiFetch('/api/cadastro', {
+                method: 'POST',
+                body: JSON.stringify({
+                    nome: cadastro.nome,
+                    email: cadastro.email,
+                    senha: cadastro.senha,
+                    tipo: cadastro.tipo
+                })
             });
 
-            setCadastro({ nome: '', email: '', senha: '', confirmarSenha: '' });
+            setCadastro({ nome: '', email: '', senha: '', confirmarSenha: '', tipo: 'avaliador' });
             setTela('login');
             setMensagem('Conta criada com sucesso.');
         } catch (error) {
@@ -87,6 +89,15 @@ export default function Login() {
         } finally {
             setCarregando(false);
         }
+    }
+
+    function sair() {
+        limparSessao();
+        setLogin({ email: '', senha: '' });
+        setTipoLogin('avaliador');
+        setMensagem('');
+        setErro(false);
+        setTela('login');
     }
 
     return (
@@ -117,6 +128,22 @@ export default function Login() {
 
                                 <Campo texto="Nome completo" icone={<UserRound />} valor={cadastro.nome} onChange={(e) => setCadastro({ ...cadastro, nome: e.target.value })} />
                                 <Campo texto="E-mail" tipo="email" icone={<Mail />} valor={cadastro.email} onChange={(e) => setCadastro({ ...cadastro, email: e.target.value })} />
+
+                                <label className="block">
+                                    <span className="mb-2 block text-sm font-semibold text-slate-700">Tipo de usuário</span>
+                                    <div className="relative">
+                                        <ShieldCheck className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                                        <select
+                                            className="h-12 w-full rounded-md border border-slate-200 pl-11 pr-4 text-sm shadow-sm outline-none focus:border-sky-500 focus:ring-4 focus:ring-sky-100"
+                                            value={cadastro.tipo}
+                                            onChange={(e) => setCadastro({ ...cadastro, tipo: e.target.value })}
+                                        >
+                                            <option value="avaliador">Avaliador</option>
+                                            <option value="presidente">Administrador</option>
+                                        </select>
+                                    </div>
+                                </label>
+
                                 <Campo texto="Senha" tipo={mostrarSenha ? 'text' : 'password'} icone={<Lock />} valor={cadastro.senha} onChange={(e) => setCadastro({ ...cadastro, senha: e.target.value })} />
                                 <Campo texto="Confirmar senha" tipo={mostrarSenha ? 'text' : 'password'} icone={<Lock />} valor={cadastro.confirmarSenha} onChange={(e) => setCadastro({ ...cadastro, confirmarSenha: e.target.value })} />
 
@@ -134,6 +161,21 @@ export default function Login() {
                                     <h2 className="text-2xl font-extrabold text-slate-900">Entrar</h2>
                                     <p className="mt-2 text-sm text-slate-500">Acesse sua conta.</p>
                                 </div>
+
+                                <label className="block">
+                                    <span className="mb-2 block text-sm font-semibold text-slate-700">Entrar como</span>
+                                    <div className="relative">
+                                        <ShieldCheck className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                                        <select
+                                            className="h-12 w-full rounded-md border border-slate-200 pl-11 pr-4 text-sm shadow-sm outline-none focus:border-sky-500 focus:ring-4 focus:ring-sky-100"
+                                            value={tipoLogin}
+                                            onChange={(e) => setTipoLogin(e.target.value)}
+                                        >
+                                            <option value="avaliador">Avaliador</option>
+                                            <option value="presidente">Administrador</option>
+                                        </select>
+                                    </div>
+                                </label>
 
                                 <Campo texto="E-mail" tipo="email" icone={<Mail />} valor={login.email} onChange={(e) => setLogin({ ...login, email: e.target.value })} />
 
@@ -180,3 +222,4 @@ function Campo({ texto, tipo = 'text', icone, valor, onChange, children }) {
         </label>
     );
 }
+

@@ -1,21 +1,75 @@
-import { useMemo } from 'react';
+﻿import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Download, Send, Star } from 'lucide-react';
+import { ArrowLeft, Download, Loader2, Send, Star } from 'lucide-react';
 import Cabecalho from '../../components/Cabecalho.jsx';
-import { avaliacoes } from '../../data/avaliacoes.js';
+import { avaliacoes as avaliacoesMock } from '../../data/avaliacoes.js';
+import { apiFetch } from '../../lib/api.js';
+import { normalizarAvaliacao, normalizarDetalheAvaliacao } from '../../lib/avaliacoes.js';
 
 export default function RelatorioAvaliacao() {
     const navigate = useNavigate();
     const { id } = useParams();
+    const [carregando, setCarregando] = useState(true);
+    const [erro, setErro] = useState('');
+    const [avaliacao, setAvaliacao] = useState(null);
 
-    const avaliacao = useMemo(() => avaliacoes.find((item) => item.id === id), [id]);
+    const fallback = useMemo(() => avaliacoesMock.find((item) => item.id === id), [id]);
+
+    useEffect(() => {
+        let ativo = true;
+
+        async function carregar() {
+            setCarregando(true);
+            setErro('');
+
+            try {
+                const resposta = await apiFetch(`/api/avaliacoes/${id}`);
+                const normalizada = normalizarDetalheAvaliacao(resposta, fallback ? normalizarAvaliacao(fallback) : null);
+
+                if (ativo) {
+                    setAvaliacao(normalizada);
+                }
+            } catch (error) {
+                if (ativo) {
+                    if (fallback) {
+                        setAvaliacao(normalizarAvaliacao(fallback));
+                        setErro('Exibindo relatório de exemplo local porque a API não retornou o detalhe.');
+                    } else {
+                        setErro('Relatório não encontrado.');
+                    }
+                }
+            } finally {
+                if (ativo) {
+                    setCarregando(false);
+                }
+            }
+        }
+
+        carregar();
+
+        return () => {
+            ativo = false;
+        };
+    }, [fallback, id]);
+
+    if (carregando) {
+        return (
+            <main className="min-h-dvh bg-slate-50 text-slate-900">
+                <Cabecalho textoBotao="Historico" onClick={() => navigate('/historico-avaliacoes')} />
+                <div className="mx-auto flex max-w-md items-center gap-3 px-4 py-6 text-sm font-semibold text-slate-600">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Carregando relatório...
+                </div>
+            </main>
+        );
+    }
 
     if (!avaliacao) {
         return (
             <main className="min-h-dvh bg-slate-50 text-slate-900">
                 <Cabecalho textoBotao="Dashboard" onClick={() => navigate('/dashboard')} />
                 <div className="mx-auto max-w-md px-4 py-6">
-                    <p className="rounded-lg border border-slate-200 bg-white p-5 text-sm font-semibold text-slate-600 shadow-sm">Relatório não encontrado.</p>
+                    <p className="rounded-lg border border-slate-200 bg-white p-5 text-sm font-semibold text-slate-600 shadow-sm">{erro || 'Relatório não encontrado.'}</p>
                 </div>
             </main>
         );
@@ -31,6 +85,12 @@ export default function RelatorioAvaliacao() {
                     Relatório {avaliacao.farmacia}
                 </button>
 
+                {erro && (
+                    <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm font-semibold text-amber-800">
+                        {erro}
+                    </div>
+                )}
+
                 <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
                     <div className="text-center">
                         <div className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-orange-100 text-orange-700">
@@ -39,21 +99,26 @@ export default function RelatorioAvaliacao() {
                         <h1 className="mt-4 text-2xl font-extrabold text-blue-950">{avaliacao.farmacia}</h1>
                         <p className="mt-1 text-xs font-semibold text-slate-500">CNPJ {avaliacao.cnpj}</p>
                         <p className="mt-2 text-sm leading-5 text-slate-600">{avaliacao.endereco}</p>
-                        <p className="mt-1 text-xs font-semibold text-slate-500">Avaliado em: {avaliacao.dataTexto}</p>
+                        <p className="mt-1 text-xs font-semibold text-slate-500">Avaliado em: {avaliacao.dataTexto} {avaliacao.hora ? `- ${avaliacao.hora}` : ''}</p>
+                        <p className="mt-1 text-xs font-semibold uppercase text-blue-900/70">{avaliacao.avaliador}</p>
                     </div>
 
                     <div className="mt-6 rounded-lg border border-slate-200 bg-slate-50 p-4">
                         <h2 className="text-base font-extrabold text-blue-950">Resumo da Avaliação</h2>
-                        <div className="mt-3 flex items-center gap-2 text-sm text-slate-700">
+                        <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-slate-700">
                             <span>Nota geral:</span>
                             <strong className="text-amber-700">{avaliacao.classificacao}</strong>
                             <span>- {avaliacao.notaGeral}</span>
                         </div>
 
                         <div className="mt-4 space-y-3">
-                            {avaliacao.criterios.map((criterio) => (
-                                <Criterio criterio={criterio} key={criterio.nome} />
-                            ))}
+                            {avaliacao.criterios?.length > 0 ? (
+                                avaliacao.criterios.map((criterio) => (
+                                    <Criterio criterio={criterio} key={criterio.nome} />
+                                ))
+                            ) : (
+                                <p className="text-sm text-slate-600">A avaliação foi registrada com observações resumidas.</p>
+                            )}
                         </div>
 
                         <p className="mt-4 border-t border-slate-200 pt-4 text-sm leading-6 text-slate-600">{avaliacao.resumo}</p>

@@ -1,13 +1,18 @@
-import { useMemo, useState } from 'react';
+﻿import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CalendarDays, ClipboardCheck, Home, LogOut, PlusCircle, Settings, SlidersHorizontal, Star, Store, UserRound, X } from 'lucide-react';
 import Cabecalho from '../components/Cabecalho.jsx';
-import { avaliacoes } from '../data/avaliacoes.js';
+import { avaliacoes as avaliacoesMock } from '../data/avaliacoes.js';
+import { apiFetch, limparSessao, obterUsuarioLogado } from '../lib/api.js';
+import { normalizarListaAvaliacoes } from '../lib/avaliacoes.js';
 
 export default function Dashboard() {
     const navigate = useNavigate();
     const [buscaFarmacia, setBuscaFarmacia] = useState('');
     const [mostrarFiltros, setMostrarFiltros] = useState(true);
+    const [carregando, setCarregando] = useState(true);
+    const [erroCarregar, setErroCarregar] = useState('');
+    const [avaliacoesBase, setAvaliacoesBase] = useState([]);
     const [filtros, setFiltros] = useState({
         cidade: '',
         avaliador: '',
@@ -16,17 +21,54 @@ export default function Dashboard() {
         notaMinima: ''
     });
 
-    const usuario = useMemo(() => {
-        const usuarioSalvo = localStorage.getItem('sindicato_usuario');
-        return usuarioSalvo ? JSON.parse(usuarioSalvo) : null;
+    const usuario = useMemo(() => obterUsuarioLogado(), []);
+    const tipoUsuario = usuario?.tipo || 'avaliador';
+
+    useEffect(() => {
+        let ativo = true;
+
+        async function carregarAvaliacoes() {
+            setCarregando(true);
+            setErroCarregar('');
+
+            try {
+                const resposta = await apiFetch('/api/avaliacoes');
+                const lista = Array.isArray(resposta?.avaliacoes) ? resposta.avaliacoes : [];
+                const normalizadas = lista.length > 0
+                    ? normalizarListaAvaliacoes(lista, avaliacoesMock)
+                    : normalizarListaAvaliacoes(avaliacoesMock, avaliacoesMock);
+
+                if (ativo) {
+                    setAvaliacoesBase(normalizadas);
+                    if (lista.length === 0) {
+                        setErroCarregar('Mostrando dados de exemplo até o backend retornar avaliações.');
+                    }
+                }
+            } catch (error) {
+                if (ativo) {
+                    setAvaliacoesBase(normalizarListaAvaliacoes(avaliacoesMock, avaliacoesMock));
+                    setErroCarregar('Não foi possível carregar as avaliações reais. Exibindo dados de exemplo.');
+                }
+            } finally {
+                if (ativo) {
+                    setCarregando(false);
+                }
+            }
+        }
+
+        carregarAvaliacoes();
+
+        return () => {
+            ativo = false;
+        };
     }, []);
 
     const farmaciasFiltradas = useMemo(() => {
         const termo = buscaFarmacia.trim().toLowerCase();
 
-        return avaliacoes.filter((avaliacao) => {
-            const texto = `${avaliacao.farmacia} ${avaliacao.cnpj} ${avaliacao.cidade} ${avaliacao.avaliador} ${avaliacao.dataTexto} ${avaliacao.hora}`.toLowerCase();
-            const nota = Number(avaliacao.notaGeral.replace(',', '.'));
+        return avaliacoesBase.filter((avaliacao) => {
+            const texto = `${avaliacao.farmacia} ${avaliacao.cnpj} ${avaliacao.endereco} ${avaliacao.cidade} ${avaliacao.avaliador} ${avaliacao.dataTexto} ${avaliacao.hora}`.toLowerCase();
+            const nota = Number(String(avaliacao.notaGeral).replace(',', '.'));
             const combinaBusca = termo ? texto.includes(termo) : true;
             const combinaCidade = filtros.cidade ? avaliacao.cidade === filtros.cidade : true;
             const combinaAvaliador = filtros.avaliador ? avaliacao.avaliador === filtros.avaliador : true;
@@ -36,10 +78,10 @@ export default function Dashboard() {
 
             return combinaBusca && combinaCidade && combinaAvaliador && combinaDataInicio && combinaDataFim && combinaNota;
         });
-    }, [buscaFarmacia, filtros]);
+    }, [avaliacoesBase, buscaFarmacia, filtros]);
 
-    const cidades = useMemo(() => [...new Set(avaliacoes.map((avaliacao) => avaliacao.cidade))], []);
-    const avaliadores = useMemo(() => [...new Set(avaliacoes.map((avaliacao) => avaliacao.avaliador))], []);
+    const cidades = useMemo(() => [...new Set(avaliacoesBase.map((avaliacao) => avaliacao.cidade).filter(Boolean))], [avaliacoesBase]);
+    const avaliadores = useMemo(() => [...new Set(avaliacoesBase.map((avaliacao) => avaliacao.avaliador).filter(Boolean))], [avaliacoesBase]);
 
     function alterarFiltro(campo, valor) {
         setFiltros((filtrosAtuais) => ({ ...filtrosAtuais, [campo]: valor }));
@@ -68,14 +110,13 @@ export default function Dashboard() {
     }
 
     function sair() {
-        localStorage.removeItem('sindicato_token');
-        localStorage.removeItem('sindicato_usuario');
+        limparSessao();
         navigate('/');
     }
 
     return (
         <main className="min-h-dvh bg-slate-50 text-slate-900">
-            <Cabecalho textoBotao="Sair" onClick={sair} />
+            <Cabecalho />
 
             <div className="mx-auto flex max-w-6xl flex-col gap-4 px-4 py-4 pb-24 sm:px-6 lg:grid lg:grid-cols-[230px_1fr] lg:gap-6 lg:px-8 lg:py-8 lg:pb-8">
                 <div className="space-y-4 lg:space-y-6">
@@ -84,24 +125,19 @@ export default function Dashboard() {
                             <p className="text-xs font-semibold uppercase text-slate-500">Usuário</p>
                             <p className="mt-1 text-sm font-bold text-slate-900">{usuario?.nome || 'Usuário'}</p>
                             <p className="break-all text-xs text-slate-500">{usuario?.email || 'email@email.com'}</p>
+                            <p className="mt-2 text-xs font-semibold uppercase text-blue-900/70">{tipoUsuario}</p>
                         </div>
 
                         <nav className="grid grid-cols-3 gap-2 lg:block lg:space-y-1" aria-label="Menu principal">
                             <MenuItem ativo icone={<Home />} texto="Início" />
                             <MenuItem icone={<Store />} texto="Farmácias" textoMobile="Farm." />
                             <MenuItem icone={<ClipboardCheck />} texto="Avaliações" textoMobile="Aval." onClick={() => navigate('/historico-avaliacoes')} />
-                            <MenuItem icone={<PlusCircle />} texto="Nova avaliação" textoMobile="Nova av." onClick={() => navigate('/nova-avaliacao')} />
-                            <MenuItem icone={<UserRound />} texto="Perfil" />
+                            {tipoUsuario === 'avaliador' && <MenuItem icone={<PlusCircle />} texto="Nova avaliação" textoMobile="Nova av." onClick={() => navigate('/nova-avaliacao')} />}
+                            <MenuItem icone={<UserRound />} texto="Perfil" onClick={() => navigate('/perfil')} />
                             <MenuItem icone={<Settings />} texto="Config" />
                         </nav>
 
-                        <MenuItem
-                            className="mt-3 hidden lg:flex"
-                            danger
-                            icone={<LogOut />}
-                            texto="Sair"
-                            onClick={sair}
-                        />
+                        <MenuItem className="mt-3 hidden lg:flex" danger icone={<LogOut />} texto="Sair" onClick={sair} />
                     </aside>
 
                     {mostrarFiltros && (
@@ -149,26 +185,28 @@ export default function Dashboard() {
                                     Acompanhe as farmácias e avaliações cadastradas no sistema.
                                 </p>
                             </div>
-                            <button className="hidden rounded-md bg-blue-700 px-4 py-2 text-sm font-bold text-white hover:bg-blue-800 sm:inline-flex" type="button" onClick={() => navigate('/nova-avaliacao')}>
-                                Nova avaliação
-                            </button>
+                            {tipoUsuario === 'avaliador' && (
+                                <button className="hidden rounded-md bg-blue-700 px-4 py-2 text-sm font-bold text-white hover:bg-blue-800 sm:inline-flex" type="button" onClick={() => navigate('/nova-avaliacao')}>
+                                    Nova avaliação
+                                </button>
+                            )}
                         </div>
                     </section>
 
                     <section className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                        <Card titulo="Avaliações" valor="200" />
-                        <Card titulo="Farmácias" valor="12" />
-                        <Card titulo="Média geral" valor="3,7" estrela destaque />
+                        <Card titulo="Avaliações" valor={String(avaliacoesBase.length || avaliacoesMock.length)} />
+                        <Card titulo="Farmácias" valor={String(new Set(avaliacoesBase.map((item) => item.cnpj)).size || new Set(avaliacoesMock.map((item) => item.cnpj)).size)} />
+                        <Card titulo="Média geral" valor={calcularMedia(avaliacoesBase.length > 0 ? avaliacoesBase : normalizarListaAvaliacoes(avaliacoesMock, avaliacoesMock))} estrela destaque />
                     </section>
 
                     <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
                         <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
                             <div>
                                 <h2 className="text-lg font-extrabold text-slate-900 sm:text-xl">Últimas farmácias</h2>
-                                <p className="text-sm text-slate-500">Dados temporários para montar a tela.</p>
+                                <p className="text-sm text-slate-500">Dados reais do backend quando disponíveis. Exemplo local como fallback.</p>
                             </div>
                             <span className="rounded-md border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-bold text-slate-600" aria-live="polite">
-                                {farmaciasFiltradas.length} de {avaliacoes.length}
+                                {farmaciasFiltradas.length} de {avaliacoesBase.length || avaliacoesMock.length}
                             </span>
                         </div>
 
@@ -178,15 +216,27 @@ export default function Dashboard() {
                             </button>
                             <div className="h-8 w-px bg-slate-200" />
                             <label className="relative block min-w-0 flex-1">
-                                    <span className="sr-only">Buscar farmácia, cidade ou data</span>
+                                <span className="sr-only">Buscar farmácia, endereço ou data</span>
                                 <input
                                     className="h-9 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-sky-500 focus:ring-4 focus:ring-sky-100"
-                                    placeholder="Buscar farmácia, cidade ou data"
+                                    placeholder="Buscar farmácia, endereço ou data"
                                     value={buscaFarmacia}
                                     onChange={(evento) => setBuscaFarmacia(evento.target.value)}
                                 />
                             </label>
                         </div>
+
+                        {erroCarregar && (
+                            <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800">
+                                {erroCarregar}
+                            </div>
+                        )}
+
+                        {carregando && (
+                            <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-5 text-center text-sm font-semibold text-slate-500">
+                                Carregando avaliações...
+                            </div>
+                        )}
 
                         <div className="space-y-3 sm:hidden">
                             {farmaciasFiltradas.map((farmacia) => (
@@ -200,10 +250,10 @@ export default function Dashboard() {
                                 <thead className="border-b border-slate-200 text-slate-500">
                                     <tr>
                                         <th className="w-[30%] px-3 py-3 font-bold" scope="col">Farmácia</th>
-                                        <th className="w-[15%] px-3 py-3 font-bold" scope="col">Cidade</th>
-                                        <th className="w-[20%] px-3 py-3 font-bold" scope="col">Avaliador</th>
-                                        <th className="w-[12%] px-3 py-3 text-center font-bold" scope="col">Média</th>
-                                        <th className="w-[23%] px-3 py-3 font-bold" scope="col">Avaliado em</th>
+                                        <th className="w-[18%] px-3 py-3 font-bold" scope="col">Avaliador</th>
+                                        <th className="w-[18%] px-3 py-3 font-bold" scope="col">Endereço</th>
+                                        <th className="w-[10%] px-3 py-3 text-center font-bold" scope="col">Média</th>
+                                        <th className="w-[24%] px-3 py-3 font-bold" scope="col">Avaliado em</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -221,8 +271,8 @@ export default function Dashboard() {
                                                 <p className="font-semibold text-slate-800">{farmacia.farmacia}</p>
                                                 <p className="text-xs text-slate-500">CNPJ {farmacia.cnpj}</p>
                                             </td>
-                                            <td className="px-3 py-3 text-slate-600">{farmacia.cidade}</td>
                                             <td className="px-3 py-3 text-slate-600">{farmacia.avaliador}</td>
+                                            <td className="px-3 py-3 text-slate-600">{farmacia.endereco}</td>
                                             <td className="px-3 py-3 text-center font-bold text-blue-950">{farmacia.notaGeral}</td>
                                             <td className="px-3 py-3 text-slate-600">{farmacia.dataTexto}, {farmacia.hora}</td>
                                         </tr>
@@ -231,7 +281,7 @@ export default function Dashboard() {
                             </table>
                         </div>
 
-                        {farmaciasFiltradas.length === 0 && (
+                        {!carregando && farmaciasFiltradas.length === 0 && (
                             <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-5 text-center text-sm font-semibold text-slate-500">
                                 Nenhuma farmácia encontrada.
                             </div>
@@ -240,16 +290,27 @@ export default function Dashboard() {
                 </div>
             </div>
 
-            <button
-                className="fixed bottom-4 left-4 right-4 z-10 flex h-12 items-center justify-center gap-2 rounded-md bg-blue-700 text-sm font-extrabold text-white shadow-lg shadow-blue-900/20 hover:bg-blue-800 sm:hidden"
-                type="button"
-                onClick={() => navigate('/nova-avaliacao')}
-            >
-                <PlusCircle className="h-5 w-5" />
-                Nova avaliação
-            </button>
+            {tipoUsuario === 'avaliador' && (
+                <button
+                    className="fixed bottom-4 left-4 right-4 z-10 flex h-12 items-center justify-center gap-2 rounded-md bg-blue-700 text-sm font-extrabold text-white shadow-lg shadow-blue-900/20 hover:bg-blue-800 sm:hidden"
+                    type="button"
+                    onClick={() => navigate('/nova-avaliacao')}
+                >
+                    <PlusCircle className="h-5 w-5" />
+                    Nova avaliação
+                </button>
+            )}
         </main>
     );
+}
+
+function calcularMedia(lista) {
+    if (!lista || lista.length === 0) {
+        return '0,0';
+    }
+
+    const total = lista.reduce((soma, item) => soma + Number(String(item.notaGeral).replace(',', '.')) || 0, 0);
+    return (total / lista.length).toFixed(1).replace('.', ',');
 }
 
 function MenuItem({ icone, texto, textoMobile, ativo = false, danger = false, onClick, className = '' }) {
@@ -288,15 +349,16 @@ function FarmaciaCard({ farmacia, onClick }) {
             <div className="flex items-start justify-between gap-3">
                 <div>
                     <h3 className="text-sm font-extrabold text-slate-900">{farmacia.farmacia}</h3>
-                    <p className="mt-1 text-xs text-slate-500">{farmacia.cidade} • {farmacia.avaliador}</p>
+                    <p className="mt-1 text-xs text-slate-500">{farmacia.cidade ? `${farmacia.cidade} • ${farmacia.avaliador}` : farmacia.avaliador}</p>
                     <p className="mt-1 text-xs text-slate-500">CNPJ {farmacia.cnpj}</p>
                 </div>
                 <div className="shrink-0 text-right">
-                    <p className="text-xs font-extrabold text-blue-950">{farmacia.notaGeral}</p>
+                    <p className="text-xs font-extrabold text-blue-950">★ {farmacia.notaGeral}</p>
                     <p className="mt-1 text-xs font-semibold text-slate-500">{farmacia.hora}</p>
                 </div>
             </div>
-            <p className="mt-2 text-xs font-semibold text-slate-500">{farmacia.dataTexto}</p>
+            <p className="mt-2 text-xs font-semibold text-slate-500">{farmacia.endereco}</p>
+            <p className="mt-1 text-xs font-semibold text-slate-500">{farmacia.dataTexto}</p>
         </button>
     );
 }
@@ -326,3 +388,4 @@ function FiltroData({ label, value, onChange }) {
         </label>
     );
 }
+

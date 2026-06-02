@@ -1,700 +1,313 @@
-import { useState } from "react";
-
-import {
-    Store,
-    Building2,
-    Package,
-    Users,
-    UserSquare2,
-    CreditCard,
-    Check
-} from "lucide-react";
-
-import Cabecalho from "../../components/Cabecalho.jsx";
-import TopoOndas from "../../components/TopoOndas.jsx";
+﻿import { useMemo, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Building2, Check, CreditCard, Package, Star, Store, UserSquare2, Users } from 'lucide-react';
+import Cabecalho from '../../components/Cabecalho.jsx';
+import { criarRelatorioFinal, formatarNota, salvarRelatorioFinal } from '../../lib/relatorioFinal.js';
 
 export default function Avaliacao() {
+    const navigate = useNavigate();
+    const secoes = useMemo(() => [
+        { titulo: 'Letreiro', icone: Store, perguntas: ['Apresentação', 'Manutenção', 'Iluminação'] },
+        { titulo: 'Loja', icone: Building2, perguntas: ['Limpeza', 'Iluminação', 'Layout', 'Comunicação visual'] },
+        { titulo: 'Gôndola', icone: Package, perguntas: ['Limpeza', 'Precificação', 'Rupturas'] },
+        { titulo: 'Balcão', icone: Users, perguntas: ['Apresentação', 'Atenção', 'Conhecimento'] },
+        { titulo: 'Salão', icone: UserSquare2, perguntas: ['Apresentação', 'Atenção', 'Conhecimento'] },
+        { titulo: 'Caixa', icone: CreditCard, perguntas: ['Apresentação', 'Atenção', 'Conhecimento'] }
+    ], []);
 
-    const secoes = [
-        {
-            titulo: "Letreiro",
-            icone: Store,
-            perguntas: [
-                "Apresentação",
-                "Manutenção",
-                "Iluminação"
-            ]
-        },
-        {
-            titulo: "Loja",
-            icone: Building2,
-            perguntas: [
-                "Limpeza",
-                "Iluminação",
-                "Layout",
-                "Comunicação Visual"
-            ]
-        },
-        {
-            titulo: "Gôndola",
-            icone: Package,
-            perguntas: [
-                "Limpeza",
-                "Precificação",
-                "Rupturas"
-            ]
-        },
-        {
-            titulo: "Balcão",
-            icone: Users,
-            perguntas: [
-                "Apresentação",
-                "Atenção",
-                "Conhecimento"
-            ]
-        },
-        {
-            titulo: "Salão",
-            icone: UserSquare2,
-            perguntas: [
-                "Apresentação",
-                "Atenção",
-                "Conhecimento"
-            ]
-        },
-        {
-            titulo: "Caixa",
-            icone: CreditCard,
-            perguntas: [
-                "Apresentação",
-                "Atenção",
-                "Conhecimento"
-            ]
-        }
-    ];
-
-    const emojis = [
-        {
-            emoji: "😁",
-            texto: "Ótimo",
-            cor: "bg-green-100 border-green-500"
-        },
-        {
-            emoji: "😔",
-            texto: "Regular",
-            cor: "bg-yellow-100 border-yellow-500"
-        },
-        {
-            emoji: "😡",
-            texto: "Ruim",
-            cor: "bg-red-100 border-red-500"
-        }
-    ];
+    const emojis = useMemo(() => [
+        { emoji: '😁', texto: 'Ótimo', valor: 1, cor: 'bg-emerald-100 border-emerald-500 text-emerald-700' },
+        { emoji: '😐', texto: 'Regular', valor: 2, cor: 'bg-amber-100 border-amber-500 text-amber-700' },
+        { emoji: '😡', texto: 'Ruim', valor: 3, cor: 'bg-rose-100 border-rose-500 text-rose-700' }
+    ], []);
 
     const [secaoAtual, setSecaoAtual] = useState(0);
-
     const [respostas, setRespostas] = useState({});
+    const [notasSecao, setNotasSecao] = useState({});
+    const [observacoesSecoes, setObservacoesSecoes] = useState({});
 
-    function selecionarResposta(secaoIndex, perguntaIndex, valor) {
-
+    function avaliarPergunta(secaoIndex, perguntaIndex, valor) {
         const chave = `${secaoIndex}-${perguntaIndex}`;
+        setRespostas((prev) => ({ ...prev, [chave]: valor }));
+    }
 
-        setRespostas((prev) => ({
-            ...prev,
-            [chave]: valor
-        }));
+    function avaliarSecao(secaoIndex, valor) {
+        setNotasSecao((prev) => ({ ...prev, [secaoIndex]: valor }));
+    }
+
+    function alterarObservacao(secaoIndex, valor) {
+        setObservacoesSecoes((prev) => ({ ...prev, [secaoIndex]: valor }));
     }
 
     function secaoCompleta(secaoIndex) {
+        const perguntasRespondidas = secoes[secaoIndex].perguntas.every((_, perguntaIndex) => respostas[`${secaoIndex}-${perguntaIndex}`]);
+        return Boolean(perguntasRespondidas && notasSecao[secaoIndex]);
+    }
 
-        return secoes[secaoIndex].perguntas.every(
-            (_, perguntaIndex) => {
+    function mediaSecao(secaoIndex) {
+        return Number(notasSecao[secaoIndex] || 0);
+    }
 
-                const chave = `${secaoIndex}-${perguntaIndex}`;
+    function mediaGeral() {
+        const notas = secoes.map((_, index) => Number(notasSecao[index] || 0)).filter((nota) => nota > 0);
 
-                return respostas[chave];
-            }
-        );
+        if (notas.length === 0) return 0;
+        return Number((notas.reduce((soma, nota) => soma + nota, 0) / notas.length).toFixed(1));
     }
 
     function trocarSecao(index) {
-
-        if (
-            index > secaoAtual &&
-            !secaoCompleta(secaoAtual)
-        ) {
-            alert(
-                "Responda todas as perguntas desta seção antes de continuar."
-            );
-
+        if (index > secaoAtual && !secaoCompleta(secaoAtual)) {
+            alert('Responda todas as perguntas e selecione a nota em estrelas desta seção antes de continuar.');
             return;
         }
 
         setSecaoAtual(index);
-
-        window.scrollTo({
-            top: 0,
-            behavior: "smooth"
-        });
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
+    function finalizarAvaliacao() {
+        const todasRespondidas = secoes.every((_, index) => secaoCompleta(index));
+        if (!todasRespondidas) {
+            alert('Responda todas as perguntas e selecione as notas em estrelas antes de finalizar.');
+            return;
+        }
+
+        const relatorio = criarRelatorioFinal({
+            secoes,
+            respostas,
+            notasSecao,
+            observacoesSecoes,
+            farmacia: {
+                nome: 'Mais Farma',
+                cnpj: '05.123.456/0001-89',
+                endereco: 'R. das Farmácias, 123, Centro, Cidade'
+            }
+        });
+
+        salvarRelatorioFinal(relatorio);
+        navigate('/relatorio-final-avaliacao');
+    }
+
+    const totalPerguntas = secoes.reduce((total, secao) => total + secao.perguntas.length, 0);
+    const perguntasRespondidas = Object.keys(respostas).length;
+    const mediaAtual = mediaSecao(secaoAtual);
+
     return (
+        <main className="min-h-dvh bg-slate-50 text-slate-900">
+            <Cabecalho textoBotao="Dashboard" onClick={() => navigate('/dashboard')} />
 
-        <main className="min-h-screen bg-slate-100">
-
-            <Cabecalho />
-
-            <section className="relative overflow-hidden">
-
-                <TopoOndas />
-
-                <div className="relative z-10 px-4 py-6 md:px-10">
-
-                    {/* CARD PRINCIPAL */}
-                    <div
-                        className="
-                            max-w-6xl
-                            mx-auto
-                            bg-white
-                            rounded-[32px]
-                            shadow-xl
-                            overflow-hidden
-                        "
-                    >
-
-                        {/* TOPO */}
-                        <div className="p-6 md:p-10">
-
-                            <h1
-                                className="
-                                    text-3xl
-                                    md:text-5xl
-                                    font-extrabold
-                                    text-center
-                                    text-slate-800
-                                "
-                            >
-                                Auditoria da Unidade
-                            </h1>
-
-                            <p
-                                className="
-                                    text-center
-                                    text-slate-500
-                                    mt-4
-                                    text-sm
-                                    md:text-lg
-                                "
-                            >
-                                Avalie cada seção da farmácia.
+            <div className="mx-auto flex max-w-6xl flex-col gap-4 px-4 py-4 sm:px-6 lg:px-8 lg:py-8">
+                <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
+                    <p className="text-xs font-bold uppercase text-blue-900/70 sm:text-sm">Avaliação</p>
+                    <div className="mt-2 grid gap-3 lg:grid-cols-[1fr_auto] lg:items-end">
+                        <div>
+                            <h1 className="text-2xl font-extrabold leading-tight text-blue-950 sm:text-3xl">Auditoria da unidade</h1>
+                            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600 sm:text-base">
+                                Avalie cada seção com emojis e defina a nota final da seção em estrelas no bloco inferior.
                             </p>
-
                         </div>
 
-                        {/* PROGRESSO GERAL */}
-                        <div className="max-w-4xl mx-auto px-2 pb-8">
-
-                            <div className="flex items-center justify-between mb-3">
-
-                                <p className="text-sm font-semibold text-slate-600">
-                                    Progresso da avaliação
-                                </p>
-
-                                <p className="text-sm font-bold text-blue-600">
-
-                                    {Object.keys(respostas).length}
-
-                                    {" "}de{" "}
-
-                                    {
-                                        secoes.reduce(
-                                            (total, secao) =>
-                                                total + secao.perguntas.length,
-                                            0
-                                        )
-                                    }
-
-                                    {" "}perguntas
-
-                                </p>
-
+                        <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm lg:min-w-[340px]">
+                            <div className="grid grid-cols-3 gap-3 text-center">
+                                <InfoCard titulo="Seção" valor={`${secaoAtual + 1}/${secoes.length}`} />
+                                <InfoCard titulo="Respostas" valor={`${perguntasRespondidas}/${totalPerguntas}`} />
+                                <InfoCard titulo="Média" valor={mediaGeral() ? formatarNota(mediaGeral()) : '0,0'} destaque />
                             </div>
-
-                            <div
-                                className="
-                                    w-full
-                                    h-3
-                                    bg-slate-200
-                                    rounded-full
-                                    overflow-hidden
-                                "
-                            >
-
-                                <div
-                                    className="
-                                        h-full
-                                        bg-blue-700
-                                        rounded-full
-                                        transition-all
-                                        duration-500
-                                    "
-                                    style={{
-                                        width: `${
-                                            (
-                                                Object.keys(respostas).length /
-                                                secoes.reduce(
-                                                    (total, secao) =>
-                                                        total + secao.perguntas.length,
-                                                    0
-                                                )
-                                            ) * 100
-                                        }%`
-                                    }}
-                                />
-
-                            </div>
-
                         </div>
-
-                        {/* MENU */}
-                        <div className="px-4 pb-10">
-
-                            <div
-                                className="
-                                    flex
-                                    flex-wrap
-                                    justify-center
-                                    gap-4
-                                "
-                            >
-
-                                {secoes.map((secao, index) => {
-
-                                    const Icone = secao.icone;
-
-                                    const respondidas =
-                                        secaoCompleta(index);
-
-                                    return (
-
-                                        <button
-                                            key={index}
-                                            onClick={() =>
-                                                trocarSecao(index)
-                                            }
-                                            className={`
-                                                relative
-                                                w-[110px]
-                                                h-[100px]
-                                                rounded-3xl
-                                                border
-                                                transition-all
-                                                duration-300
-                                                flex
-                                                flex-col
-                                                items-center
-                                                justify-center
-                                                gap-2
-
-                                                ${
-                                                    secaoCompleta(index)
-                                                        ? "bg-green-200 border-green-200 text-white"
-                                                        : secaoAtual === index
-                                                        ? "bg-blue-50 border-blue-500"
-                                                        : "bg-white border-slate-200"
-                                                }
-                                            `}
-                                        >
-
-                                            {/* CHECK */}
-                                            {respondidas && (
-
-                                                <div
-                                                    className="
-                                                        absolute
-                                                        top-3
-                                                        right-3
-                                                        w-6
-                                                        h-6
-                                                        rounded-full
-                                                        bg-slate-100
-                                                        flex
-                                                        items-center
-                                                        justify-center
-                                                    "
-                                                >
-
-                                                    <Check
-                                                        size={14}
-                                                        className="text-green-700"
-                                                    />
-
-                                                </div>
-
-                                            )}
-
-                                            {/* ÍCONE */}
-                                            <div
-                                                className={`
-                                                    w-10
-                                                    h-10
-                                                    rounded-xl
-                                                    flex
-                                                    items-center
-                                                    justify-center
-                                                    p-0
-
-                                                    ${
-                                                        respondidas
-                                                            ? "bg-green-250 text-green-600"
-                                                            : secaoAtual === index
-                                                            ? "bg-blue-100 text-blue-600"
-                                                            : "bg-slate-100 text-slate-700"
-                                                    }
-                                                `}
-                                            >
-
-                                                <Icone
-                                                    size={22}
-                                                    strokeWidth={2.2}
-                                                />
-
-                                            </div>
-
-                                            {/* TEXTO */}
-                                            <span
-                                                className="
-                                                    text-sm
-                                                    font-bold
-                                                    text-center
-                                                    leading-tight
-                                                    text-slate-700
-                                                "
-                                            >
-                                                {secao.titulo}
-                                            </span>
-
-                                        </button>
-
-                                    );
-                                })}
-
-                            </div>
-
-                        </div>
-
-                        {/* PERGUNTAS */}
-                        <div className="px-4 md:px-8 pb-10">
-
-                            <div className="space-y-8">
-
-                                {secoes[secaoAtual].perguntas.map(
-                                    (pergunta, perguntaIndex) => {
-
-                                        const chave =
-                                            `${secaoAtual}-${perguntaIndex}`;
-
-                                        return (
-
-                                            <div
-                                                key={perguntaIndex}
-                                                className="
-                                                    bg-slate-50
-                                                    border
-                                                    border-slate-200
-                                                    rounded-[28px]
-                                                    p-5
-                                                    md:p-8
-                                                    shadow-sm
-                                                "
-                                            >
-
-                                                <p
-                                                    className="
-                                                        text-blue-600
-                                                        font-bold
-                                                        text-sm
-                                                        uppercase
-                                                    "
-                                                >
-                                                    Pergunta {perguntaIndex + 1}
-                                                </p>
-
-                                                <h2
-                                                    className="
-                                                        text-xl
-                                                        md:text-3xl
-                                                        text-center
-                                                        font-bold
-                                                        text-slate-800
-                                                        mt-4
-                                                    "
-                                                >
-
-                                                    Como você avalia a{" "}
-
-                                                    <span className="text-blue-600">
-                                                        {pergunta.toLowerCase()}
-                                                    </span>
-
-                                                    {" "}da seção{" "}
-
-                                                    <span className="text-blue-600">
-                                                        {secoes[secaoAtual].titulo.toLowerCase()}
-                                                    </span>
-
-                                                    ?
-
-                                                </h2>
-
-                                                {/* EMOJIS */}
-                                                <div
-                                                    className="
-                                                        flex
-                                                        justify-center
-                                                        gap-6
-                                                        md:gap-12
-                                                        mt-10
-                                                        flex-wrap
-                                                    "
-                                                >
-
-                                                    {emojis.map(
-                                                        (
-                                                            item,
-                                                            emojiIndex
-                                                        ) => (
-
-                                                            <div
-                                                                key={emojiIndex}
-                                                                className="
-                                                                    flex
-                                                                    flex-col
-                                                                    items-center
-                                                                "
-                                                            >
-
-                                                                <button
-                                                                    onClick={() =>
-                                                                        selecionarResposta(
-                                                                            secaoAtual,
-                                                                            perguntaIndex,
-                                                                            emojiIndex + 1
-                                                                        )
-                                                                    }
-                                                                    className={`
-                                                                        w-20
-                                                                        h-20
-                                                                        md:w-24
-                                                                        md:h-24
-                                                                        rounded-full
-                                                                        border-2
-                                                                        flex
-                                                                        items-center
-                                                                        justify-center
-                                                                        transition-all
-                                                                        duration-300
-                                                                        hover:scale-110
-
-                                                                        ${
-                                                                            respostas[chave] === emojiIndex + 1
-                                                                                ? `${item.cor} scale-110 shadow-lg`
-                                                                                : "bg-white border-slate-300"
-                                                                        }
-                                                                    `}
-                                                                >
-
-                                                                    <span
-                                                                        className="
-                                                                            text-[48px]
-                                                                            md:text-[58px]
-                                                                            leading-none
-                                                                        "
-                                                                    >
-                                                                        {item.emoji}
-                                                                    </span>
-
-                                                                </button>
-
-                                                                <span
-                                                                    className="
-                                                                        mt-3
-                                                                        text-sm
-                                                                        md:text-base
-                                                                        font-semibold
-                                                                        text-slate-600
-                                                                    "
-                                                                >
-                                                                    {item.texto}
-                                                                </span>
-
-                                                            </div>
-
-                                                        )
-                                                    )}
-
-                                                </div>
-
-                                                {/* DESCRIÇÃO */}
-                                                <div className="mt-10">
-
-                                                    <label
-                                                        className="
-                                                            block
-                                                            text-slate-700
-                                                            font-bold
-                                                            mb-3
-                                                        "
-                                                    >
-
-                                                        Descrição
-
-                                                        <span
-                                                            className="
-                                                                text-slate-400
-                                                                font-medium
-                                                            "
-                                                        >
-                                                            {" "} (Opcional)
-                                                        </span>
-
-                                                    </label>
-
-                                                    <textarea
-                                                        placeholder="Descreva detalhes da avaliação..."
-                                                        className="
-                                                            w-full
-                                                            h-32
-                                                            rounded-2xl
-                                                            border
-                                                            border-slate-300
-                                                            bg-white
-                                                            p-4
-                                                            outline-none
-                                                            resize-none
-                                                            focus:ring-2
-                                                            focus:ring-blue-400
-                                                            text-left
-                                                            placeholder:text-left
-                                                        "
-                                                    />
-
-                                                </div>
-
-                                            </div>
-
-                                        );
-                                    }
-                                )}
-
-                            </div>
-
-                            {/* BOTÕES */}
-                            <div
-                                className="
-                                    flex
-                                    flex-col
-                                    md:flex-row
-                                    gap-4
-                                    pt-8
-                                "
-                            >
-
-                                {secaoAtual > 0 && (
-
-                                    <button
-                                        onClick={() =>
-                                            setSecaoAtual(secaoAtual - 1)
-                                        }
-                                        className="
-                                            flex-1
-                                            bg-slate-200
-                                            hover:bg-slate-300
-                                            text-slate-700
-                                            font-bold
-                                            py-4
-                                            rounded-2xl
-                                            transition
-                                        "
-                                    >
-                                        Voltar
-                                    </button>
-
-                                )}
-
-                                {secaoAtual < secoes.length - 1 ? (
-
-                                    <button
-                                        onClick={() =>
-                                            trocarSecao(secaoAtual + 1)
-                                        }
-                                        className="
-                                            flex-1
-                                            bg-blue-600
-                                            hover:bg-blue-700
-                                            text-white
-                                            font-bold
-                                            py-4
-                                            rounded-2xl
-                                            transition
-                                        "
-                                    >
-                                        Próxima seção
-                                    </button>
-
-                                ) : (
-
-                                    <button
-                                        onClick={() => {
-
-                                            const todasRespondidas =
-                                                secoes.every(
-                                                    (_, index) =>
-                                                        secaoCompleta(index)
-                                                );
-
-                                            if (!todasRespondidas) {
-
-                                                alert(
-                                                    "Responda todas as perguntas antes de finalizar."
-                                                );
-
-                                                return;
-                                            }
-
-                                            alert(
-                                                "Avaliação enviada com sucesso!"
-                                            );
-
-                                        }}
-                                        className="
-                                            flex-1
-                                            bg-gradient-to-r
-                                            from-cyan-400
-                                            to-blue-600
-                                            hover:opacity-90
-                                            text-white
-                                            font-bold
-                                            py-4
-                                            rounded-2xl
-                                            transition
-                                        "
-                                    >
-                                        Finalizar avaliação
-                                    </button>
-
-                                )}
-
-                            </div>
-
-                        </div>
-
                     </div>
 
+                    <div className="mt-4 h-2 rounded-full bg-slate-100">
+                        <div className="h-2 rounded-full bg-blue-700 transition-all" style={{ width: `${(Object.keys(notasSecao).length / secoes.length) * 100}%` }} />
+                    </div>
+                </section>
+
+                <section className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm sm:p-4">
+                    <div className="flex items-center justify-between gap-3 border-b border-slate-200 pb-3">
+                        <div>
+                            <h2 className="text-sm font-extrabold uppercase text-slate-900">Seções</h2>
+                            <p className="mt-1 text-xs text-slate-500">Deslize para ver todas no celular.</p>
+                        </div>
+                        <span className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-bold text-slate-600">{secaoAtual + 1}/{secoes.length}</span>
+                    </div>
+
+                    <div className="mt-3 -mx-3 overflow-x-auto px-3 pb-1">
+                        <div className="flex min-w-max gap-3 lg:grid lg:min-w-0 lg:grid-cols-6">
+                            {secoes.map((secao, index) => {
+                                const Icone = secao.icone;
+                                const respondida = secaoCompleta(index);
+                                const ativa = secaoAtual === index;
+                                const media = mediaSecao(index);
+
+                                return (
+                                    <button
+                                        key={secao.titulo}
+                                        type="button"
+                                        onClick={() => trocarSecao(index)}
+                                        className={`flex w-[150px] shrink-0 items-center gap-3 rounded-md border p-3 text-left transition lg:w-full ${
+                                            ativa
+                                                ? 'border-blue-200 bg-blue-50'
+                                                : respondida
+                                                    ? 'border-emerald-200 bg-emerald-50'
+                                                    : 'border-slate-200 bg-white hover:border-sky-300 hover:bg-slate-50'
+                                        }`}
+                                    >
+                                        <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-md ${ativa ? 'bg-blue-700 text-white' : respondida ? 'bg-emerald-600 text-white' : 'bg-slate-100 text-slate-700'}`}>
+                                            <Icone className="h-5 w-5" />
+                                        </span>
+
+                                        <span className="min-w-0 flex-1">
+                                            <span className="block text-sm font-bold text-slate-900">{secao.titulo}</span>
+                                            <span className="block text-xs text-slate-500">{secao.perguntas.length} itens</span>
+                                            <span className="mt-1 block text-xs font-semibold text-slate-600">
+                                                {media ? `Média ${formatarNota(media)}` : 'Sem média'}
+                                            </span>
+                                        </span>
+
+                                        {respondida && <Check className="h-4 w-4 shrink-0 text-emerald-600" />}
+                                    </button>
+                                );
+                            })}
+                        </div>
+                    </div>
+                </section>
+
+                <div className="grid gap-4 lg:grid-cols-[280px_1fr] lg:gap-6">
+                    <aside className="space-y-4">
+                        <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+                            <h2 className="text-sm font-extrabold uppercase text-slate-900">Resumo rápido</h2>
+                            <div className="mt-3 space-y-3 text-sm text-slate-600">
+                                <div className="flex items-center justify-between gap-3">
+                                    <span>Seção atual:</span>
+                                    <span className="font-bold text-slate-900">{secoes[secaoAtual].titulo}</span>
+                                </div>
+                                <div className="flex items-center justify-between gap-3">
+                                    <span>Média da seção:</span>
+                                    <span className="font-bold text-slate-900">{mediaAtual ? formatarNota(mediaAtual) : '0,0'}</span>
+                                </div>
+                                <div className="flex items-center justify-between gap-3">
+                                    <span>Observação:</span>
+                                    <span className="font-bold text-slate-900">{observacoesSecoes[secaoAtual]?.trim() ? 'preenchida' : 'opcional'}</span>
+                                </div>
+                            </div>
+                        </section>
+                    </aside>
+
+                    <section className="rounded-lg border border-slate-200 bg-white shadow-sm">
+                        <div className="border-b border-slate-200 px-4 py-4 sm:px-6">
+                            <p className="text-xs font-bold uppercase text-blue-900/70">Seção {secaoAtual + 1}</p>
+                            <h2 className="mt-1 text-xl font-extrabold text-blue-950">{secoes[secaoAtual].titulo}</h2>
+                            <p className="mt-3 text-sm leading-6 text-slate-600">Marque cada item com emojis e defina a nota final da seção em estrelas no bloco inferior.</p>
+                        </div>
+
+                        <div className="space-y-4 p-4 sm:p-6">
+                            {secoes[secaoAtual].perguntas.map((pergunta, perguntaIndex) => {
+                                const chave = `${secaoAtual}-${perguntaIndex}`;
+                                const respostaAtual = Number(respostas[chave] || 0);
+
+                                return (
+                                    <article key={pergunta} className="rounded-lg border border-slate-200 bg-slate-50 p-4 sm:p-5">
+                                        <div className="flex flex-wrap items-center justify-between gap-2">
+                                            <div>
+                                                <p className="text-xs font-bold uppercase text-slate-500">Pergunta {perguntaIndex + 1}</p>
+                                                <h3 className="mt-1 text-base font-extrabold text-slate-900 sm:text-lg">{pergunta}</h3>
+                                            </div>
+                                            <span className="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-bold text-slate-600">{respostaAtual ? emojis.find((item) => item.valor === respostaAtual)?.texto : 'Pendente'}</span>
+                                        </div>
+
+                                        <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+                                            {emojis.map((item) => {
+                                                const selecionada = respostaAtual === item.valor;
+
+                                                return (
+                                                    <button
+                                                        key={item.texto}
+                                                        type="button"
+                                                        onClick={() => avaliarPergunta(secaoAtual, perguntaIndex, item.valor)}
+                                                        className={`flex items-center gap-3 rounded-md border p-3 text-left transition hover:-translate-y-0.5 ${selecionada ? item.cor : 'border-slate-200 bg-white hover:border-sky-300'}`}
+                                                    >
+                                                        <span className="text-3xl leading-none">{item.emoji}</span>
+                                                        <span className={`text-sm font-bold ${selecionada ? 'text-inherit' : 'text-slate-700'}`}>{item.texto}</span>
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    </article>
+                                );
+                            })}
+
+                            <article className="rounded-lg border border-slate-200 bg-white p-4 sm:p-5">
+                                <div className="flex items-center justify-between gap-3">
+                                    <div>
+                                        <p className="text-sm font-bold text-slate-700">Avaliação por estrelas da seção</p>
+                                        <p className="mt-1 text-xs text-slate-500">Essa nota define a média da seção e entra no relatório final.</p>
+                                    </div>
+                                    <span className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-bold text-slate-600">
+                                        {mediaAtual ? `${formatarNota(mediaAtual)}/5` : '0,0/5'}
+                                    </span>
+                                </div>
+
+                                <div className="mt-4 flex flex-wrap items-center gap-2">
+                                    {[1, 2, 3, 4, 5].map((valor) => {
+                                        const selecionada = mediaAtual >= valor;
+
+                                        return (
+                                            <button
+                                                key={valor}
+                                                type="button"
+                                                onClick={() => avaliarSecao(secaoAtual, valor)}
+                                                className={`flex h-11 w-11 items-center justify-center rounded-md border transition ${selecionada ? 'border-amber-300 bg-amber-50 text-amber-500' : 'border-slate-200 bg-white text-slate-300 hover:border-sky-300 hover:text-amber-300'}`}
+                                                aria-label={`${valor} estrela${valor > 1 ? 's' : ''}`}
+                                            >
+                                                <Star className={`h-5 w-5 ${selecionada ? 'fill-amber-400' : ''}`} />
+                                            </button>
+                                        );
+                                    })}
+                                    <span className="flex items-center self-center text-sm font-semibold text-slate-500">
+                                        {mediaAtual ? `Nota ${formatarNota(mediaAtual)}` : 'Selecione a nota'}
+                                    </span>
+                                </div>
+                            </article>
+
+                            <article className="rounded-lg border border-slate-200 bg-white p-4 sm:p-5">
+                                <label className="block">
+                                    <span className="mb-2 block text-sm font-bold text-slate-700">Observação da seção</span>
+                                    <textarea
+                                        className="min-h-28 w-full rounded-md border border-slate-200 bg-white p-3 text-sm outline-none focus:border-sky-500 focus:ring-4 focus:ring-sky-100"
+                                        placeholder="Deixe aqui uma observação geral sobre esta seção..."
+                                        value={observacoesSecoes[secaoAtual] || ''}
+                                        onChange={(evento) => alterarObservacao(secaoAtual, evento.target.value)}
+                                    />
+                                </label>
+                            </article>
+
+                            <div className="flex flex-col gap-3 border-t border-slate-200 pt-4 sm:flex-row">
+                                <button type="button" onClick={() => setSecaoAtual((atual) => Math.max(0, atual - 1))} disabled={secaoAtual === 0} className="h-12 rounded-md border border-slate-200 px-4 text-sm font-bold text-slate-700 hover:border-sky-300 hover:text-sky-700 disabled:cursor-not-allowed disabled:opacity-50 sm:flex-1">
+                                    Voltar
+                                </button>
+
+                                {secaoAtual < secoes.length - 1 ? (
+                                    <button type="button" onClick={() => trocarSecao(secaoAtual + 1)} className="h-12 rounded-md bg-blue-700 px-4 text-sm font-bold text-white hover:bg-blue-800 sm:flex-1">
+                                        Próxima seção
+                                    </button>
+                                ) : (
+                                    <button type="button" onClick={finalizarAvaliacao} className="h-12 rounded-md bg-blue-700 px-4 text-sm font-bold text-white hover:bg-blue-800 sm:flex-1">
+                                        Finalizar avaliação
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    </section>
                 </div>
-
-            </section>
-
+            </div>
         </main>
+    );
+}
+
+function InfoCard({ titulo, valor, destaque = false }) {
+    return (
+        <div className={`rounded-md border border-slate-200 bg-slate-50 p-3 text-center ${destaque ? 'shadow-none' : 'shadow-sm'}`}>
+            <p className="text-xs font-semibold uppercase text-slate-500">{titulo}</p>
+            <p className="mt-1 text-lg font-extrabold text-blue-950">{valor}</p>
+        </div>
     );
 }

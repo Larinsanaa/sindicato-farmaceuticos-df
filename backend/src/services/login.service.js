@@ -1,4 +1,4 @@
-const User = require('../models/user.model');
+﻿const User = require('../models/user.model');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { supabase } = require('../config/config');
@@ -23,7 +23,7 @@ class LoginService {
 
     const passwordMatch = await bcrypt.compare(senha, user.senha); 
     
-    // Se a validação da senha falhar, barra com a mesma mensagem genérica
+    // Se a validaÃ§Ã£o da senha falhar, barra com a mesma mensagem genÃ©rica
     if (!passwordMatch) {
       throw new Error('E-mail ou senha incorretos.'); 
     } 
@@ -32,9 +32,9 @@ class LoginService {
       expiresIn: '1h' 
     }); 
 
-    // Retorna os dados resumidos do perfil logado, o tipo de usuário e o token gerado
+    // Retorna os dados resumidos do perfil logado, o tipo de usuÃ¡rio e o token gerado
     return {
-      user: { id: user.id, nome: user.nome, email: user.email, tipo: user.tipo },
+      user: { id: user.id, nome: user.nome, email: user.email, tipo: user.tipo, foto_perfil: user.foto_perfil || null },
       token
     }; 
   }

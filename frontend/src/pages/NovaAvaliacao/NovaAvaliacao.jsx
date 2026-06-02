@@ -1,7 +1,8 @@
-import { useMemo, useState } from 'react';
+﻿import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { AlertTriangle, ArrowLeft, Loader2, LocateFixed, MapPin, Search } from 'lucide-react';
 import Cabecalho from '../../components/Cabecalho.jsx';
+import { obterUsuarioLogado } from '../../lib/api.js';
 
 const farmaciaEncontrada = {
     nome: 'Maisfarma',
@@ -14,6 +15,8 @@ const farmaciaEncontrada = {
 
 export default function NovaAvaliacao() {
     const navigate = useNavigate();
+    const usuario = obterUsuarioLogado();
+    const podeAcessar = usuario?.tipo === 'avaliador';
     const [etapa, setEtapa] = useState('busca');
     const [cnpj, setCnpj] = useState('');
     const [farmacia, setFarmacia] = useState(null);
@@ -21,6 +24,19 @@ export default function NovaAvaliacao() {
     const [aviso, setAviso] = useState('');
 
     const cnpjCompleto = useMemo(() => somenteNumeros(cnpj).length === 14, [cnpj]);
+
+    if (!podeAcessar) {
+        return (
+            <main className="min-h-dvh bg-slate-50 text-slate-900">
+                <Cabecalho textoBotao="Dashboard" onClick={() => navigate('/dashboard')} />
+                <div className="mx-auto max-w-md px-4 py-6">
+                    <div className="rounded-lg border border-amber-200 bg-amber-50 p-5 text-sm font-semibold text-amber-800">
+                        Esta área é exclusiva para avaliadores.
+                    </div>
+                </div>
+            </main>
+        );
+    }
 
     function pesquisarFarmacia(evento) {
         evento.preventDefault();

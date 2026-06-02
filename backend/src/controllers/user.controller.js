@@ -1,4 +1,4 @@
-import { supabase } from '../config/config.js';
+﻿import { supabase } from '../config/config.js';
 
 class UserController {
   async getProfile(req, res) {
@@ -7,7 +7,7 @@ class UserController {
 
       const { data: user, error } = await supabase
         .from('usuario')
-        .select('id, nome, email, tipo')
+        .select('id, nome, email, tipo, foto_perfil')
         .eq('id', userId)
         .single();
 
@@ -18,6 +18,32 @@ class UserController {
       return res.json({ user });
     } catch (error) {
       return res.status(500).json({ error: 'Erro ao buscar perfil do usuário.' });
+    }
+  }
+
+  async updateAvatar(req, res) {
+    try {
+      const userId = req.userId;
+      const { fotoPerfil } = req.body;
+
+      if (!fotoPerfil || typeof fotoPerfil !== 'string' || !fotoPerfil.startsWith('data:image/')) {
+        return res.status(400).json({ error: 'Envie uma imagem válida em base64.' });
+      }
+
+      const { data: user, error } = await supabase
+        .from('usuario')
+        .update({ foto_perfil: fotoPerfil })
+        .eq('id', userId)
+        .select('id, nome, email, tipo, foto_perfil')
+        .single();
+
+      if (error || !user) {
+        return res.status(500).json({ error: 'Não foi possível atualizar a foto do perfil.' });
+      }
+
+      return res.json({ user });
+    } catch (error) {
+      return res.status(500).json({ error: 'Erro ao atualizar foto do perfil.' });
     }
   }
 }

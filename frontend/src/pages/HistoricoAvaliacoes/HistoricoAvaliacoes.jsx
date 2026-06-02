@@ -1,26 +1,70 @@
-import { useMemo, useState } from 'react';
+﻿import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, CalendarDays, ClipboardCheck, Clock, Filter, MapPin, Search, Star, UserRound } from 'lucide-react';
 import Cabecalho from '../../components/Cabecalho.jsx';
-import { avaliacoes } from '../../data/avaliacoes.js';
+import { avaliacoes as avaliacoesMock } from '../../data/avaliacoes.js';
+import { apiFetch } from '../../lib/api.js';
+import { normalizarListaAvaliacoes } from '../../lib/avaliacoes.js';
 
 export default function HistoricoAvaliacoes() {
     const navigate = useNavigate();
     const [busca, setBusca] = useState('');
     const [data, setData] = useState('');
     const [mostrarFiltros, setMostrarFiltros] = useState(false);
+    const [carregando, setCarregando] = useState(true);
+    const [erroCarregar, setErroCarregar] = useState('');
+    const [avaliacoesBase, setAvaliacoesBase] = useState([]);
+
+    useEffect(() => {
+        let ativo = true;
+
+        async function carregar() {
+            setCarregando(true);
+            setErroCarregar('');
+
+            try {
+                const resposta = await apiFetch('/api/avaliacoes');
+                const lista = Array.isArray(resposta?.avaliacoes) ? resposta.avaliacoes : [];
+                const normalizadas = lista.length > 0
+                    ? normalizarListaAvaliacoes(lista, avaliacoesMock)
+                    : normalizarListaAvaliacoes(avaliacoesMock, avaliacoesMock);
+
+                if (ativo) {
+                    setAvaliacoesBase(normalizadas);
+                    if (lista.length === 0) {
+                        setErroCarregar('Mostrando dados de exemplo até o backend retornar avaliações.');
+                    }
+                }
+            } catch (error) {
+                if (ativo) {
+                    setAvaliacoesBase(normalizarListaAvaliacoes(avaliacoesMock, avaliacoesMock));
+                    setErroCarregar('Não foi possível carregar o histórico real. Exibindo dados de exemplo.');
+                }
+            } finally {
+                if (ativo) {
+                    setCarregando(false);
+                }
+            }
+        }
+
+        carregar();
+
+        return () => {
+            ativo = false;
+        };
+    }, []);
 
     const avaliacoesFiltradas = useMemo(() => {
         const termo = busca.trim().toLowerCase();
 
-        return avaliacoes.filter((avaliacao) => {
+        return avaliacoesBase.filter((avaliacao) => {
             const texto = `${avaliacao.farmacia} ${avaliacao.cnpj} ${avaliacao.dataTexto} ${avaliacao.hora} ${avaliacao.avaliador} ${avaliacao.endereco}`.toLowerCase();
             const combinaBusca = termo ? texto.includes(termo) : true;
             const combinaData = data ? avaliacao.data === data : true;
 
             return combinaBusca && combinaData;
         });
-    }, [busca, data]);
+    }, [avaliacoesBase, busca, data]);
 
     return (
         <main className="min-h-dvh bg-slate-50 text-slate-900">
@@ -59,6 +103,18 @@ export default function HistoricoAvaliacoes() {
                         </label>
                     )}
                 </section>
+
+                {erroCarregar && (
+                    <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm font-semibold text-amber-800">
+                        {erroCarregar}
+                    </div>
+                )}
+
+                {carregando && (
+                    <div className="rounded-lg border border-dashed border-slate-300 bg-white p-6 text-center text-sm font-semibold text-slate-500">
+                        Carregando histórico...
+                    </div>
+                )}
 
                 <section className="space-y-3">
                     {avaliacoesFiltradas.map((avaliacao) => (
@@ -100,7 +156,7 @@ export default function HistoricoAvaliacoes() {
                         </button>
                     ))}
 
-                    {avaliacoesFiltradas.length === 0 && (
+                    {!carregando && avaliacoesFiltradas.length === 0 && (
                         <div className="rounded-lg border border-dashed border-slate-300 bg-white p-6 text-center text-sm font-semibold text-slate-500">
                             Nenhuma avaliação encontrada.
                         </div>
