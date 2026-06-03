@@ -2,16 +2,22 @@
 import Logo from './Logo.jsx';
 import { obterUsuarioLogado } from '../lib/api.js';
 
-export default function Cabecalho({ textoBotao, onClick }) {
+// 1. Mudança aqui: Recebendo menuAberto e setMenuAberto do Dashboard
+export default function Cabecalho({ textoBotao, onClick, menuAberto, setMenuAberto }) {
     const navigate = useNavigate();
     const usuario = obterUsuarioLogado();
     const fotoPerfil = usuario?.foto_perfil || usuario?.fotoPerfil || '';
     const nomeUsuario = usuario?.nome || 'Usuário';
-    const subtitulo = usuario ? 'Perfil do usuário' : 'Usuário';
+    
+    // Ajustado para pegar o tipo (ex: avaliador) ou usar o fallback idêntico ao da foto
+    const subtitulo = usuario?.tipo || 'avaliador'; 
     const iniciais = gerarIniciais(nomeUsuario);
 
-    function abrirPerfil() {
-        navigate('/perfil');
+    // 2. Mudança aqui: Em vez de navegar para /perfil, ele inverte o estado do menu
+    function alternarMenu() {
+        if (setMenuAberto) {
+            setMenuAberto(!menuAberto);
+        }
     }
 
     return (
@@ -23,8 +29,10 @@ export default function Cabecalho({ textoBotao, onClick }) {
                     <button
                         className="flex items-center gap-3 rounded-full border border-slate-200 bg-white px-2 py-1.5 text-left shadow-sm transition hover:border-sky-300 hover:shadow-md focus:outline-none focus:ring-4 focus:ring-sky-100"
                         type="button"
-                        onClick={abrirPerfil}
-                        aria-label="Abrir perfil do usuário"
+                        // 3. Mudança aqui: Agora o botão chama a função de abrir/fechar o menu ao clicar
+                        onClick={alternarMenu} 
+                        aria-label="Abrir menu do usuário"
+                        aria-expanded={menuAberto}
                     >
                         <span className="flex h-11 w-11 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-100 text-sm font-extrabold text-slate-700 ring-2 ring-white">
                             {fotoPerfil ? (

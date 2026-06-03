@@ -13,6 +13,7 @@ export default function Dashboard() {
     const [carregando, setCarregando] = useState(true);
     const [erroCarregar, setErroCarregar] = useState('');
     const [avaliacoesBase, setAvaliacoesBase] = useState([]);
+    const [menuAberto, setMenuAberto] = useState(false);
     const [filtros, setFiltros] = useState({
         cidade: '',
         avaliador: '',
@@ -23,7 +24,7 @@ export default function Dashboard() {
 
     const usuario = useMemo(() => obterUsuarioLogado(), []);
     const tipoUsuario = usuario?.tipo || 'avaliador';
-
+   
     useEffect(() => {
         let ativo = true;
 
@@ -116,30 +117,63 @@ export default function Dashboard() {
 
     return (
         <main className="min-h-dvh bg-slate-50 text-slate-900">
-            <Cabecalho />
+            {/* O container ganha relative e passa as funções para dentro do Cabeçalho nativo */}
+            <div className="relative">
+                {/* Enviamos o controle de clique e o estado para dentro do componente do Cabeçalho */}
+                <Cabecalho menuAberto={menuAberto} setMenuAberto={setMenuAberto} />
+                
+                {/* Menu Dropdown renderizado perfeitamente flutuando abaixo do botão superior */}
+                {menuAberto && (
+                    <div 
+                        className="absolute right-6 top-[58px] z-50 w-64 rounded-lg border border-slate-200 bg-white p-2 shadow-xl animate-in fade-in slide-in-from-top-1 duration-150"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <MenuItem ativo icone={<Home />} texto="Início" onClick={() => setMenuAberto(false)} />
+
+                        <MenuItem
+                            icone={<Store />}
+                            texto="Farmácias"
+                            onClick={() => setMenuAberto(false)}
+                        />
+
+                        <MenuItem
+                            icone={<ClipboardCheck />}
+                            texto="Avaliações"
+                            onClick={() => { navigate('/historico-avaliacoes'); setMenuAberto(false); }}
+                        />
+
+                        {tipoUsuario === 'avaliador' && (
+                            <MenuItem
+                                icone={<PlusCircle />}
+                                texto="Nova avaliação"
+                                onClick={() => { navigate('/nova-avaliacao'); setMenuAberto(false); }}
+                            />
+                        )}
+
+                        <MenuItem
+                            icone={<UserRound />}
+                            texto="Perfil"
+                            onClick={() => { navigate('/perfil'); setMenuAberto(false); }}
+                        />
+
+                        <MenuItem
+                            icone={<Settings />}
+                            texto="Config"
+                            onClick={() => setMenuAberto(false)}
+                        />
+
+                        <MenuItem
+                            danger
+                            icone={<LogOut />}
+                            texto="Sair"
+                            onClick={sair}
+                        />
+                    </div>
+                )}
+            </div>
 
             <div className="mx-auto flex max-w-6xl flex-col gap-4 px-4 py-4 pb-24 sm:px-6 lg:grid lg:grid-cols-[230px_1fr] lg:gap-6 lg:px-8 lg:py-8 lg:pb-8">
                 <div className="space-y-4 lg:space-y-6">
-                    <aside className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm lg:h-fit lg:p-4">
-                        <div className="mb-3 rounded-md bg-slate-50 p-3">
-                            <p className="text-xs font-semibold uppercase text-slate-500">Usuário</p>
-                            <p className="mt-1 text-sm font-bold text-slate-900">{usuario?.nome || 'Usuário'}</p>
-                            <p className="break-all text-xs text-slate-500">{usuario?.email || 'email@email.com'}</p>
-                            <p className="mt-2 text-xs font-semibold uppercase text-blue-900/70">{tipoUsuario}</p>
-                        </div>
-
-                        <nav className="grid grid-cols-3 gap-2 lg:block lg:space-y-1" aria-label="Menu principal">
-                            <MenuItem ativo icone={<Home />} texto="Início" />
-                            <MenuItem icone={<Store />} texto="Farmácias" textoMobile="Farm." />
-                            <MenuItem icone={<ClipboardCheck />} texto="Avaliações" textoMobile="Aval." onClick={() => navigate('/historico-avaliacoes')} />
-                            {tipoUsuario === 'avaliador' && <MenuItem icone={<PlusCircle />} texto="Nova avaliação" textoMobile="Nova av." onClick={() => navigate('/nova-avaliacao')} />}
-                            <MenuItem icone={<UserRound />} texto="Perfil" onClick={() => navigate('/perfil')} />
-                            <MenuItem icone={<Settings />} texto="Config" />
-                        </nav>
-
-                        <MenuItem className="mt-3 hidden lg:flex" danger icone={<LogOut />} texto="Sair" onClick={sair} />
-                    </aside>
-
                     {mostrarFiltros && (
                         <aside className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm lg:p-4" id="filtros-dashboard">
                             <div className="mb-3 flex items-center justify-between gap-3">
@@ -388,4 +422,3 @@ function FiltroData({ label, value, onChange }) {
         </label>
     );
 }
-
