@@ -1,5 +1,5 @@
 // src/models/company.model.js
-const { supabase } = require("../../config");
+import { supabase } from '../config/config.js';
 
 class CompanyModel {
   // Busca empresa por CNPJ
@@ -33,4 +33,4 @@ class CompanyModel {
   }
 }
 
-module.exports = new CompanyModel();
+export default new CompanyModel();

@@ -1,6 +1,7 @@
 import jwt from 'jsonwebtoken';
+import { jwtSecret } from '../config/config.js';
 
-module.exports = (req, res, next) => {
+export default (req, res, next) => {
   const authHeader = req.headers.authorization; 
 
   if (!authHeader) {
@@ -22,7 +23,7 @@ module.exports = (req, res, next) => {
   } 
 
   
-  const SEGREDO_JWT = process.env.JWT_SECRET || 'SUA_CHAVE_SECRETA_SUPER_SEGURA'; 
+  const SEGREDO_JWT = jwtSecret;
 
   jwt.verify(token, SEGREDO_JWT, (err, decoded) => {
     if (err) {

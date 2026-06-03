@@ -1,10 +1,10 @@
-import { supabase } from '../config/config';
+import { supabase } from '../config/config.js';
 
 class UserModel {
   // Busca um usuário por e-mail
   async findByEmail(email) {
     const { data: usuario, error } = await supabase
-        .from('usuario')
+        .from('usuarios')
         .select('*')
         .eq('email', email); // Retorna um array com os resultados
 
@@ -22,7 +22,7 @@ class UserModel {
 
   async create(userData) {
     const { data, error } = await supabase
-        .from('usuario')
+        .from('usuarios')
         .insert([userData])
         .select(); 
     
@@ -35,4 +35,4 @@ class UserModel {
   }
 }
 
-module.exports = new UserModel();
+export default new UserModel();

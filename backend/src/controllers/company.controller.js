@@ -1,5 +1,5 @@
 // src/controllers/company.controller.js
-const RegisterCompanyService = require('../services/registerCompany.service');
+import RegisterCompanyService from '../services/registerCompany.service.js';
 
 class CompanyController {
   async create(req, res) {
@@ -18,4 +18,4 @@ class CompanyController {
   }
 }
 
-module.exports = new CompanyController();
+export default new CompanyController();

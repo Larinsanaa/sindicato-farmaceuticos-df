@@ -6,8 +6,13 @@ class UserController {
       const userId = req.userId;
 
       const { data: user, error } = await supabase
+<<<<<<< HEAD
         .from('usuario')
         .select('id, nome, email, tipo, foto_perfil')
+=======
+        .from('usuarios')
+        .select('id, nome, email, tipo')
+>>>>>>> 9a2dcbf (BACKEND: validação de avaliação com CNPJ e localização ativa)
         .eq('id', userId)
         .single();
 

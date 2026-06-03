@@ -1,5 +1,10 @@
+<<<<<<< HEAD
 ﻿const RegisterService = require('../services/register.service');
 const LoginService = require('../services/login.service');
+=======
+import RegisterService from '../services/register.service.js';
+import LoginService from '../services/login.service.js';
+>>>>>>> 9a2dcbf (BACKEND: validação de avaliação com CNPJ e localização ativa)
 
 class AuthController {
   async register(req, res) {
@@ -30,5 +35,10 @@ class AuthController {
   }
 }
 
+<<<<<<< HEAD
 // Exporta uma instÃ¢ncia ativa da classe Controller
 module.exports = new AuthController();
+=======
+// Exporta uma instância ativa da classe Controller
+export default new AuthController();
+>>>>>>> 9a2dcbf (BACKEND: validação de avaliação com CNPJ e localização ativa)

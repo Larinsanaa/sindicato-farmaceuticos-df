@@ -1,3 +1,5 @@
+import { validarCNPJ } from './cnpj.util.js';
+
 export function validarAvaliacao(body) {
   const { farmacia, cnpj, endereco, respostas } = body;
 
@@ -9,9 +11,8 @@ export function validarAvaliacao(body) {
     return { valid: false, error: 'O CNPJ é obrigatório e deve ser um texto válido.' };
   }
 
-  const cnpjSomenteNumeros = cnpj.replace(/\D/g, '');
-  if (cnpjSomenteNumeros.length !== 14) {
-    return { valid: false, error: 'O CNPJ precisa conter 14 dígitos numéricos.' };
+  if (!validarCNPJ(cnpj)) {
+    return { valid: false, error: 'O CNPJ informado é inválido.' };
   }
 
   if (!endereco || typeof endereco !== 'string' || endereco.trim().length < 5) {
@@ -28,6 +29,45 @@ export function validarAvaliacao(body) {
   }
 
   return { valid: true, respostas: normalized };
+}
+
+export function validarLocalizacao(body) {
+  const locationEnabled = body.localizacao_ativa ?? body.locationEnabled;
+  const rawLatitude = body.latitude ?? body.localizacao?.latitude;
+  const rawLongitude = body.longitude ?? body.localizacao?.longitude;
+
+  if (locationEnabled !== undefined && String(locationEnabled).toLowerCase() !== 'true') {
+    return {
+      valid: false,
+      error: 'A avaliação só pode ser registrada se a localização estiver ligada.'
+    };
+  }
+
+  if (rawLatitude === undefined || rawLongitude === undefined) {
+    return {
+      valid: false,
+      error: 'A avaliação só pode ser registrada com a localização ligada. Envie latitude e longitude.'
+    };
+  }
+
+  const latitude = Number(rawLatitude);
+  const longitude = Number(rawLongitude);
+
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+    return {
+      valid: false,
+      error: 'Latitude e longitude devem ser números válidos.'
+    };
+  }
+
+  if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180) {
+    return {
+      valid: false,
+      error: 'Latitude ou longitude estão fora do intervalo permitido.'
+    };
+  }
+
+  return { valid: true, location: { latitude, longitude } };
 }
 
 export function normalizeRespostas(respostas) {

@@ -1,5 +1,5 @@
 import EvaluationModel from '../models/evaluation.model.js';
-import { validarAvaliacao, processarRespostas } from '../utils/evaluation.util.js';
+import { validarAvaliacao, validarLocalizacao, processarRespostas } from '../utils/evaluation.util.js';
 
 class EvaluationController {
   async create(req, res) {
@@ -9,11 +9,15 @@ class EvaluationController {
         return res.status(400).json({ error: validation.error });
       }
 
+      const locationValidation = validarLocalizacao(req.body);
+      if (!locationValidation.valid) {
+        return res.status(400).json({ error: locationValidation.error });
+      }
+
       const { farmacia, cnpj, endereco, observacao } = req.body;
       const respostas = validation.respostas;
       const resultado = processarRespostas(respostas);
-
-      const evaluation = await EvaluationModel.createEvaluation({
+      const evaluationPayload = {
         avaliador_id: req.userId,
         farmacia: farmacia.trim(),
         cnpj: cnpj.trim(),
@@ -22,8 +26,11 @@ class EvaluationController {
         nota_geral: resultado.notaGeral,
         classificacao: resultado.classificacao,
         resumo: resultado.resumo,
-        total_respostas: resultado.totalRespostas
-      });
+        total_respostas: resultado.totalRespostas,
+        ...locationValidation.location
+      };
+
+      const evaluation = await EvaluationModel.createEvaluation(evaluationPayload);
 
       const responsesToSave = respostas.map((item) => ({
         avaliacao_id: evaluation.id,

@@ -1,12 +1,12 @@
-const { Router } = require('express');
-const CompanyController = require('../controllers/company.controller');
-const authMiddleware = require('../middlewares/auth.middleware');
-const cnpjMiddleware = require('../middlewares/cnpj.middleware');
+import express from 'express';
+import CompanyController from '../controllers/company.controller.js';
+import authMiddleware from '../middlewares/auth.middleware.js';
+import cnpjMiddleware from '../middlewares/cnpj.middleware.js';
 
-const routes = Router();
+const routes = express.Router();
 
 // Para cadastrar uma empresa, o usuário precisa estar autenticado (authMiddleware) 
 // E o CNPJ enviado precisa ser válido (cnpjMiddleware)
 routes.post('/company/register', authMiddleware, cnpjMiddleware, CompanyController.create);
 
-module.exports = routes;
+export default routes;

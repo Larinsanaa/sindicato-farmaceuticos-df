@@ -1,42 +1,49 @@
-import User from '../models/user.model';
-import bcrypt from 'bcryptjs';
-import { supabase } from '../config/config';
+import User from '../models/user.model.js';
+import bcrypt from 'bcrypt';
+import { supabase } from '../config/config.js';
 
 
 class RegisterService {
   async execute({ nome, email, senha, tipo = 'avaliador' }) {
-    // Validar se o tipo de usuário é válido
-    const tiposValidos = ['presidente', 'avaliador'];
-    if (!tiposValidos.includes(tipo)) {
-      throw new Error('Tipo de usuário inválido. Use "presidente" ou "avaliador".'); 
+    if (!nome || !email || !senha) {
+      throw new Error('Nome, e-mail e senha são obrigatórios para cadastro.');
     }
 
-    const userExists = await supabase
-        .from('usuario')
-        .select('*')
-        .eq('email', email)
-        .single();
-    
-    if (userExists) {
-      throw new Error('Este e-mail já está em uso.'); 
-    } 
+    const tiposValidos = ['presidente', 'avaliador'];
+    if (!tiposValidos.includes(tipo)) {
+      throw new Error('Tipo de usuário inválido. Use "presidente" ou "avaliador".');
+    }
 
-    const hashedPassword = await bcrypt.hash(senha, 8); 
+    const { data: existingUser, error } = await supabase
+      .from('usuarios')
+      .select('*')
+      .eq('email', email)
+      .maybeSingle();
+
+    if (error) {
+      throw new Error('Erro ao verificar e-mail. Tente novamente mais tarde.');
+    }
+
+    if (existingUser) {
+      throw new Error('Este e-mail já está em uso.');
+    }
+
+    const hashedPassword = await bcrypt.hash(senha, 8);
 
     // Repassa os dados consolidados, salvando a senha mascarada no banco
     const user = await User.create({
       nome,
       email,
-      password: hashedPassword,
+      senha: hashedPassword,
       tipo
-    }); 
+    });
 
     // Remove a propriedade de senha do objeto resultante antes de devolvê-lo (por segurança)
-    delete user.password; 
+    delete user.senha;
     
     // Entrega o objeto limpo de volta ao Controller
-    return user; 
+    return user;
   }
 }
 
-module.exports = new RegisterService();
+export default new RegisterService();

@@ -1,4 +1,4 @@
-import { supabase } from '../config/config';
+import { supabase } from '../config/config.js';
 
 // Middleware para verificar o tipo (role) do usuário
 export const checkRole = (...allowedRoles) => {
@@ -11,7 +11,7 @@ export const checkRole = (...allowedRoles) => {
       }
 
       const { data: user, error } = await supabase
-        .from('usuario')
+        .from('usuarios')
         .select('tipo')
         .eq('id', userId)
         .single();

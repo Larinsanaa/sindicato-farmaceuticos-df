@@ -1,5 +1,5 @@
 // src/services/registerCompany.service.js
-const CompanyModel = require('../models/company.model');
+import CompanyModel from '../models/company.model.js';
 
 class RegisterCompanyService {
   async execute({ name, cnpj, ownerId }) {
@@ -21,4 +21,4 @@ class RegisterCompanyService {
   }
 }
 
-module.exports = new RegisterCompanyService();
+export default new RegisterCompanyService();
