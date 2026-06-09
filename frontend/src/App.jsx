@@ -7,6 +7,7 @@ import HistoricoAvaliacoes from './pages/HistoricoAvaliacoes/HistoricoAvaliacoes
 import Perfil from './pages/Perfil/Perfil.jsx';
 import RelatorioAvaliacao from './pages/RelatorioAvaliacao/RelatorioAvaliacao.jsx';
 import RelatorioFinalAvaliacao from './pages/RelatorioFinalAvaliacao/RelatorioFinalAvaliacao.jsx';
+import Configuracao from './pages/Configuracao/Configuracao.jsx';
 
 export default function App() {
     return (
@@ -22,6 +23,7 @@ export default function App() {
                 <Route path="/historico-avaliacoes" element={<HistoricoAvaliacoes />} />
                 <Route path="/relatorio-avaliacao/:id" element={<RelatorioAvaliacao />} />
                 <Route path="*" element={<Navigate to="/dashboard" replace />} />
+                <Route path="/configuracao" element={<Configuracao />} />
             </Routes>
         </BrowserRouter>
     );

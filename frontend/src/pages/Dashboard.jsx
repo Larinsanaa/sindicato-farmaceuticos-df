@@ -186,7 +186,10 @@ export default function Dashboard() {
                         <MenuItem ativo icone={<Home />} texto="Visão geral" />
                         <MenuItem icone={<ClipboardCheck />} texto="Avaliações" onClick={() => navigate('/historico-avaliacoes')} />
                         <MenuItem icone={<UserRound />} texto="Perfil" onClick={() => navigate('/perfil')} />
-                        <MenuItem icone={<Settings />} texto="Configurações" />
+                        <MenuItem
+                        icone={<Settings />}
+                        texto="Config"
+                        onClick={() => navigate('/configuracao')}/>
                         {!administrador && <MenuItem icone={<PlusCircle />} texto="Nova avaliação" onClick={() => navigate('/nova-avaliacao')} />}
                         <MenuItem className="hidden lg:flex" danger icone={<LogOut />} texto="Sair" onClick={sair} />
                     </nav>
