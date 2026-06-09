@@ -1,48 +1,51 @@
-import User from '../models/user.model.js';
 import bcrypt from 'bcrypt';
 import { supabase } from '../config/config.js';
 
-
 class RegisterService {
-  async execute({ nome, email, senha, tipo = 'avaliador' }) {
-    if (!nome || !email || !senha) {
-      throw new Error('Nome, e-mail e senha são obrigatórios para cadastro.');
-    }
-
+  async execute({ nome, cpf, email, senha, tipo = 'avaliador' }) {
     const tiposValidos = ['presidente', 'avaliador'];
     if (!tiposValidos.includes(tipo)) {
       throw new Error('Tipo de usuário inválido. Use "presidente" ou "avaliador".');
     }
 
-    const { data: existingUser, error } = await supabase
-      .from('usuarios')
-      .select('*')
-      .eq('email', email)
-      .maybeSingle();
-
-    if (error) {
-      throw new Error('Erro ao verificar e-mail. Tente novamente mais tarde.');
+    const cpfNormalizado = String(cpf || '').replace(/\D/g, '');
+    if (!nome?.trim() || !email?.trim() || !senha || cpfNormalizado.length !== 11) {
+      throw new Error('Nome, CPF, e-mail e senha são obrigatórios.');
     }
 
-    if (existingUser) {
+    const emailNormalizado = email.trim().toLowerCase();
+    const { data: userExists, error: findError } = await supabase
+      .from('usuarios')
+      .select('id')
+      .eq('email', emailNormalizado)
+      .maybeSingle();
+
+    if (findError) {
+      throw new Error('Erro ao consultar o e-mail informado.');
+    }
+
+    if (userExists) {
       throw new Error('Este e-mail já está em uso.');
     }
 
-    const hashedPassword = await bcrypt.hash(senha, 8);
+    const senhaCriptografada = await bcrypt.hash(senha, 8);
+    const { data: user, error: createError } = await supabase
+      .from('usuarios')
+      .insert([{
+        nome: nome.trim(),
+        cpf: cpfNormalizado,
+        email: emailNormalizado,
+        senha: senhaCriptografada,
+        nivel_acesso: tipo === 'presidente' ? 'presidente' : 'usuario'
+      }])
+      .select('id, nome, email, nivel_acesso')
+      .single();
 
-    // Repassa os dados consolidados, salvando a senha mascarada no banco
-    const user = await User.create({
-      nome,
-      email,
-      senha: hashedPassword,
-      tipo
-    });
+    if (createError) {
+      throw new Error('Erro ao salvar o usuário no banco de dados.');
+    }
 
-    // Remove a propriedade de senha do objeto resultante antes de devolvê-lo (por segurança)
-    delete user.senha;
-    
-    // Entrega o objeto limpo de volta ao Controller
-    return user;
+    return { ...user, tipo };
   }
 }
 

@@ -1,4 +1,5 @@
 import { supabase } from '../config/config.js';
+import { obterTipoUsuario } from '../utils/userRole.util.js';
 
 // Middleware para verificar o tipo (role) do usuário
 export const checkRole = (...allowedRoles) => {
@@ -12,7 +13,7 @@ export const checkRole = (...allowedRoles) => {
 
       const { data: user, error } = await supabase
         .from('usuarios')
-        .select('tipo')
+        .select('id, email, nivel_acesso')
         .eq('id', userId)
         .single();
 
@@ -20,11 +21,13 @@ export const checkRole = (...allowedRoles) => {
         return res.status(401).json({ error: 'Usuário não encontrado.' });
       }
 
-      if (!allowedRoles.includes(user.tipo)) {
+      const userRole = obterTipoUsuario(user);
+
+      if (!allowedRoles.includes(userRole)) {
         return res.status(403).json({ error: 'Você não tem permissão para acessar este recurso.' });
       }
 
-      req.userRole = user.tipo;
+      req.userRole = userRole;
       return next();
     } catch (error) {
       return res.status(500).json({ error: 'Erro ao verificar permissões.' });

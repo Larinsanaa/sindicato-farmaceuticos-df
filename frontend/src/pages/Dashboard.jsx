@@ -1,460 +1,492 @@
-﻿import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CalendarDays, ClipboardCheck, Home, LogOut, PlusCircle, Settings, SlidersHorizontal, Star, Store, UserRound, X } from 'lucide-react';
+import {
+    AlertTriangle, ArrowDownUp, Building2, CalendarDays, ChevronDown, ClipboardCheck, Download,
+    Eye, FileSearch, Filter, Home, LogOut, PlusCircle, Search, Settings, Star, Store,
+    UserRound, UsersRound, X
+} from 'lucide-react';
 import Cabecalho from '../components/Cabecalho.jsx';
 import { avaliacoes as avaliacoesMock } from '../data/avaliacoes.js';
 import { apiFetch, limparSessao, obterUsuarioLogado } from '../lib/api.js';
-import { normalizarListaAvaliacoes } from '../lib/avaliacoes.js';
+import { normalizarDetalheAvaliacao, normalizarListaAvaliacoes } from '../lib/avaliacoes.js';
+import { exportarAvaliacaoPdf } from '../lib/exportarRelatorio.js';
+
+const filtrosIniciais = {
+    cidade: '',
+    avaliador: '',
+    classificacao: '',
+    dataInicio: '',
+    dataFim: '',
+    notaMinima: '',
+    notaMaxima: '',
+    ordenacao: 'recentes'
+};
 
 export default function Dashboard() {
     const navigate = useNavigate();
-    const [buscaFarmacia, setBuscaFarmacia] = useState('');
-    const [mostrarFiltros, setMostrarFiltros] = useState(false);
-    const [carregando, setCarregando] = useState(true);
-    const [erroCarregar, setErroCarregar] = useState('');
-    const [avaliacoesBase, setAvaliacoesBase] = useState([]);
-    const [menuAberto, setMenuAberto] = useState(false);
-    const [filtros, setFiltros] = useState({
-        cidade: '',
-        avaliador: '',
-        dataInicio: '',
-        dataFim: '',
-        notaMinima: ''
-    });
-
-    // Fecha o menu dropdown ao clicar em qualquer lugar fora da tela
-    useEffect(() => {
-        if (!menuAberto) return;
-
-        function fecharMenuAoClicarFora() {
-            setMenuAberto(false);
-        }
-
-        const timer = setTimeout(() => {
-            window.addEventListener('click', fecharMenuAoClicarFora);
-        }, 0);
-
-        return () => {
-            clearTimeout(timer);
-            window.removeEventListener('click', fecharMenuAoClicarFora);
-        };
-    }, [menuAberto]);
-
     const usuario = useMemo(() => obterUsuarioLogado(), []);
-    const tipoUsuario = usuario?.tipo || 'avaliador';
-   
+    const administrador = usuario?.tipo === 'presidente';
+    const [busca, setBusca] = useState('');
+    const [filtros, setFiltros] = useState(filtrosIniciais);
+    const [avaliacoes, setAvaliacoes] = useState([]);
+    const [carregando, setCarregando] = useState(true);
+    const [mensagem, setMensagem] = useState('');
+    const [filtrosAbertos, setFiltrosAbertos] = useState(false);
+    const [sugestoesAbertas, setSugestoesAbertas] = useState(false);
+
     useEffect(() => {
         let ativo = true;
 
-        async function carregarAvaliacoes() {
+        async function carregar() {
             setCarregando(true);
-            setErroCarregar('');
+            setMensagem('');
 
             try {
                 const resposta = await apiFetch('/api/avaliacoes');
                 const lista = Array.isArray(resposta?.avaliacoes) ? resposta.avaliacoes : [];
-                const normalizadas = lista.length > 0
-                    ? normalizarListaAvaliacoes(lista, avaliacoesMock)
-                    : normalizarListaAvaliacoes(avaliacoesMock, avaliacoesMock);
-
-                if (ativo) {
-                    setAvaliacoesBase(normalizadas);
-                    if (lista.length === 0) {
-                        setErroCarregar('Mostrando dados de exemplo até o backend retornar avaliações.');
-                    }
-                }
+                if (ativo) setAvaliacoes(normalizarListaAvaliacoes(lista));
             } catch (error) {
-                if (ativo) {
-                    setAvaliacoesBase(normalizarListaAvaliacoes(avaliacoesMock, avaliacoesMock));
-                    setErroCarregar('Não foi possível carregar as avaliações reais. Exibindo dados de exemplo.');
+                if (!ativo) return;
+
+                if (administrador) {
+                    setAvaliacoes(normalizarListaAvaliacoes(avaliacoesMock, avaliacoesMock));
+                    setMensagem('API indisponível. Exibindo dados administrativos de demonstração.');
+                } else {
+                    setAvaliacoes([]);
+                    setMensagem('');
                 }
             } finally {
-                if (ativo) {
-                    setCarregando(false);
-                }
+                if (ativo) setCarregando(false);
             }
         }
 
-        carregarAvaliacoes();
+        carregar();
+        return () => { ativo = false; };
+    }, [administrador]);
 
-        return () => {
-            ativo = false;
-        };
-    }, []);
+    const opcoes = useMemo(() => ({
+        cidades: unicos(avaliacoes.map((item) => item.cidade)),
+        avaliadores: unicos(avaliacoes.map((item) => item.avaliador)),
+        classificacoes: unicos(avaliacoes.map((item) => item.classificacao))
+    }), [avaliacoes]);
 
-    const farmaciasFiltradas = useMemo(() => {
-        const termo = buscaFarmacia.trim().toLowerCase();
+    const avaliacoesFiltradas = useMemo(() => {
+        const termo = normalizarTexto(busca);
+        const lista = avaliacoes.filter((item) => {
+            const nota = obterNota(item);
+            const textoGlobal = normalizarTexto([
+                item.id, item.farmacia, item.cnpj, item.endereco, item.cidade, item.avaliador,
+                item.classificacao, item.resumo, item.observacao, item.dataTexto, item.hora,
+                ...(item.criterios || []).flatMap((criterio) => [criterio.nome, criterio.valor])
+            ].join(' '));
 
-        return avaliacoesBase.filter((avaliacao) => {
-            const texto = `${avaliacao.farmacia} ${avaliacao.cnpj} ${avaliacao.endereco} ${avaliacao.cidade} ${avaliacao.avaliador} ${avaliacao.dataTexto} ${avaliacao.hora}`.toLowerCase();
-            const nota = Number(String(avaliacao.notaGeral).replace(',', '.'));
-            const combinaBusca = termo ? texto.includes(termo) : true;
-            const combinaCidade = filtros.cidade ? avaliacao.cidade === filtros.cidade : true;
-            const combinaAvaliador = filtros.avaliador ? avaliacao.avaliador === filtros.avaliador : true;
-            const combinaDataInicio = filtros.dataInicio ? avaliacao.data >= filtros.dataInicio : true;
-            const combinaDataFim = filtros.dataFim ? avaliacao.data <= filtros.dataFim : true;
-            const combinaNota = filtros.notaMinima ? nota >= Number(filtros.notaMinima) : true;
-
-            return combinaBusca && combinaCidade && combinaAvaliador && combinaDataInicio && combinaDataFim && combinaNota;
+            return (!termo || textoGlobal.includes(termo))
+                && (!filtros.cidade || item.cidade === filtros.cidade)
+                && (!filtros.avaliador || item.avaliador === filtros.avaliador)
+                && (!filtros.classificacao || item.classificacao === filtros.classificacao)
+                && (!filtros.dataInicio || item.data >= filtros.dataInicio)
+                && (!filtros.dataFim || item.data <= filtros.dataFim)
+                && (!filtros.notaMinima || nota >= Number(filtros.notaMinima))
+                && (!filtros.notaMaxima || nota <= Number(filtros.notaMaxima));
         });
-    }, [avaliacoesBase, buscaFarmacia, filtros]);
 
-    const cidades = useMemo(() => [...new Set(avaliacoesBase.map((avaliacao) => avaliacao.cidade).filter(Boolean))], [avaliacoesBase]);
-    const avaliadores = useMemo(() => [...new Set(avaliacoesBase.map((avaliacao) => avaliacao.avaliador).filter(Boolean))], [avaliacoesBase]);
+        return [...lista].sort((a, b) => ordenarAvaliacoes(a, b, filtros.ordenacao));
+    }, [avaliacoes, busca, filtros]);
+
+    const metricas = useMemo(() => {
+        const notas = avaliacoes.map(obterNota).filter((nota) => nota > 0);
+        return {
+            total: avaliacoes.length,
+            farmacias: new Set(avaliacoes.map((item) => item.cnpj).filter(Boolean)).size,
+            avaliadores: new Set(avaliacoes.map((item) => item.avaliador).filter(Boolean)).size,
+            media: notas.length ? (notas.reduce((soma, nota) => soma + nota, 0) / notas.length).toFixed(1).replace('.', ',') : '0,0',
+            atencao: avaliacoes.filter((item) => obterNota(item) < 3.5).length
+        };
+    }, [avaliacoes]);
+
+    const totalFiltrosAtivos = useMemo(
+        () => Object.entries(filtros).filter(([campo, valor]) => campo !== 'ordenacao' && Boolean(valor)).length,
+        [filtros]
+    );
+
+    const sugestoesBusca = useMemo(() => {
+        const termo = normalizarTexto(busca.trim());
+        if (termo.length < 2) return [];
+
+        const sugestoes = avaliacoes.flatMap((item) => [
+            { tipo: 'Farmácia', valor: item.farmacia, detalhe: item.cnpj },
+            { tipo: 'CNPJ', valor: item.cnpj, detalhe: item.farmacia },
+            { tipo: 'Avaliador', valor: item.avaliador, detalhe: item.farmacia },
+            { tipo: 'Cidade', valor: item.cidade, detalhe: item.farmacia },
+            { tipo: 'Classificação', valor: item.classificacao, detalhe: item.farmacia },
+            ...(item.criterios || []).map((criterio) => ({ tipo: 'Critério', valor: criterio.nome, detalhe: item.farmacia }))
+        ]).filter((item) => item.valor && normalizarTexto(item.valor).includes(termo));
+
+        const unicas = [...new Map(sugestoes.map((item) => [`${item.tipo}-${item.valor}`, item])).values()];
+        return unicas
+            .sort((a, b) => {
+                const aComeca = normalizarTexto(a.valor).startsWith(termo) ? 0 : 1;
+                const bComeca = normalizarTexto(b.valor).startsWith(termo) ? 0 : 1;
+                return aComeca - bComeca || a.valor.localeCompare(b.valor, 'pt-BR');
+            })
+            .slice(0, 8);
+    }, [avaliacoes, busca]);
 
     function alterarFiltro(campo, valor) {
-        setFiltros((filtrosAtuais) => ({ ...filtrosAtuais, [campo]: valor }));
+        setFiltros((atuais) => ({ ...atuais, [campo]: valor }));
     }
 
     function limparFiltros() {
-        setBuscaFarmacia('');
-        setFiltros({
-            cidade: '',
-            avaliador: '',
-            dataInicio: '',
-            dataFim: '',
-            notaMinima: ''
-        });
+        setBusca('');
+        setFiltros(filtrosIniciais);
     }
 
-    function abrirRelatorio(id) {
-        navigate(`/relatorio-avaliacao/${id}`);
-    }
+    async function exportar(evento, avaliacao) {
+        evento.stopPropagation();
+        const janelaPdf = window.open('', '_blank', 'width=900,height=700');
 
-    function abrirRelatorioComTeclado(evento, id) {
-        if (evento.key === 'Enter' || evento.key === ' ') {
-            evento.preventDefault();
-            abrirRelatorio(id);
+        if (!janelaPdf) {
+            setMensagem('Permita pop-ups no navegador para exportar o relatório.');
+            return;
+        }
+
+        janelaPdf.document.write('<p style="font-family:Arial;padding:24px">Preparando relatório...</p>');
+
+        try {
+            const detalhe = await apiFetch(`/api/avaliacoes/${avaliacao.id}`);
+            exportarAvaliacaoPdf(normalizarDetalheAvaliacao(detalhe, avaliacao), janelaPdf);
+        } catch (error) {
+            if (administrador && avaliacao) {
+                exportarAvaliacaoPdf(avaliacao, janelaPdf);
+                setMensagem('A API não retornou o detalhe completo. O PDF foi gerado com os dados disponíveis.');
+                return;
+            }
+            janelaPdf.close();
+            setMensagem(error.message);
         }
     }
 
     function sair() {
         limparSessao();
-        navigate('/');
+        navigate('/login');
     }
 
     return (
-        <main className="min-h-dvh bg-slate-50 text-slate-900">
-            <div className="relative">
-                <Cabecalho menuAberto={menuAberto} setMenuAberto={setMenuAberto} />
-                
-                {menuAberto && (
-                    <div 
-                        className="absolute right-6 top-[58px] z-50 w-64 rounded-lg border border-slate-200 bg-white p-2 shadow-xl animate-in fade-in slide-in-from-top-1 duration-150"
-                        onClick={(e) => e.stopPropagation()}
-                    >
-                        <MenuItem ativo icone={<Home />} texto="Início" onClick={() => setMenuAberto(false)} />
+        <main className="min-h-dvh bg-slate-100 text-slate-900">
+            <Cabecalho />
 
-                        <MenuItem
-                            icone={<Store />}
-                            texto="Farmácias"
-                            onClick={() => setMenuAberto(false)}
-                        />
-
-                        <MenuItem
-                            icone={<ClipboardCheck />}
-                            texto="Avaliações"
-                            onClick={() => { navigate('/historico-avaliacoes'); setMenuAberto(false); }}
-                        />
-
-                        {tipoUsuario === 'avaliador' && (
-                            <MenuItem
-                                icone={<PlusCircle />}
-                                texto="Nova avaliação"
-                                onClick={() => { navigate('/nova-avaliacao'); setMenuAberto(false); }}
-                            />
-                        )}
-
-                        <MenuItem
-                            icone={<UserRound />}
-                            texto="Perfil"
-                            onClick={() => { navigate('/perfil'); setMenuAberto(false); }}
-                        />
-
-                        <MenuItem
-                            icone={<Settings />}
-                            texto="Config"
-                            onClick={() => setMenuAberto(false)}
-                        />
-
-                        <MenuItem
-                            danger
-                            icone={<LogOut />}
-                            texto="Sair"
-                            onClick={sair}
-                        />
+            <div className="mx-auto grid max-w-[1440px] gap-5 px-4 py-5 pb-24 lg:grid-cols-[220px_minmax(0,1fr)] lg:px-7 lg:pb-7">
+                <aside className="h-fit rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
+                    <div className="mb-3 border-b border-slate-200 px-2 pb-4 pt-2">
+                        <p className="text-xs font-bold uppercase text-slate-500">{administrador ? 'Administração' : 'Área do avaliador'}</p>
+                        <p className="mt-1 truncate text-sm font-extrabold text-blue-950">{usuario?.nome || 'Usuário'}</p>
+                        <p className="mt-1 truncate text-xs text-slate-500">{usuario?.email || ''}</p>
                     </div>
-                )}
-            </div>
+                    <nav className="grid grid-cols-4 gap-1 lg:block lg:space-y-1" aria-label="Menu principal">
+                        <MenuItem ativo icone={<Home />} texto="Visão geral" />
+                        <MenuItem icone={<ClipboardCheck />} texto="Avaliações" onClick={() => navigate('/historico-avaliacoes')} />
+                        <MenuItem icone={<UserRound />} texto="Perfil" onClick={() => navigate('/perfil')} />
+                        <MenuItem icone={<Settings />} texto="Configurações" />
+                        {!administrador && <MenuItem icone={<PlusCircle />} texto="Nova avaliação" onClick={() => navigate('/nova-avaliacao')} />}
+                        <MenuItem className="hidden lg:flex" danger icone={<LogOut />} texto="Sair" onClick={sair} />
+                    </nav>
+                </aside>
 
-            {/* Layout principal limpo sem a barra lateral antiga */}
-            <div className="mx-auto flex max-w-6xl flex-col gap-4 px-4 py-4 pb-24 sm:px-6 lg:py-8 lg:pb-8">
-                
-                {/* Seção Bem-vindo */}
-                <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
-                    <p className="text-xs font-bold uppercase text-blue-900/70 sm:text-sm">Dashboard</p>
-                    <div className="mt-2 grid gap-3 sm:flex sm:items-end sm:justify-between">
-                        <div>
-                            <h1 className="text-2xl font-extrabold leading-tight text-blue-950 sm:text-3xl">Bem-vindo(a)</h1>
-                            <p className="mt-2 text-sm leading-6 text-slate-600">
-                                Acompanhe as farmácias e avaliações cadastradas no sistema.
-                            </p>
-                        </div>
-                        {tipoUsuario === 'avaliador' && (
-                            <button className="hidden rounded-md bg-blue-700 px-4 py-2 text-sm font-bold text-white hover:bg-blue-800 sm:inline-flex" type="button" onClick={() => navigate('/nova-avaliacao')}>
-                                Nova avaliação
-                            </button>
-                        )}
-                    </div>
-                </section>
-
-                {/* Seção de Cards Indicadores */}
-                <section className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                    <Card titulo="Avaliações" valor={String(avaliacoesBase.length || avaliacoesMock.length)} />
-                    <Card titulo="Farmácias" valor={String(new Set(avaliacoesBase.map((item) => item.cnpj)).size || new Set(avaliacoesMock.map((item) => item.cnpj)).size)} />
-                    <Card titulo="Média geral" valor={calcularMedia(avaliacoesBase.length > 0 ? avaliacoesBase : normalizarListaAvaliacoes(avaliacoesMock, avaliacoesMock))} estrela destaque />
-                </section>
-
-                {/* Seção Principal de Listagem */}
-                <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
-                    <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-                        <div>
-                            <h2 className="text-lg font-extrabold text-slate-900 sm:text-xl">Últimas farmácias</h2>
-                            <p className="text-sm text-slate-500">Dados reais do backend quando disponíveis. Exemplo local como fallback.</p>
-                        </div>
-                        <span className="rounded-md border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-bold text-slate-600" aria-live="polite">
-                            {farmaciasFiltradas.length} de {avaliacoesBase.length || avaliacoesMock.length}
-                        </span>
-                    </div>
-
-                    {/* Barra de Busca e Botão de Filtros */}
-                    <div className="mb-4 flex items-center gap-2 border-y border-slate-200 py-3">
-                        <button 
-                            className={`grid h-9 w-9 shrink-0 place-items-center rounded-md border text-slate-600 hover:border-sky-300 hover:text-blue-700 ${mostrarFiltros ? 'border-blue-200 bg-blue-50 text-blue-700' : 'border-slate-200'}`} 
-                            type="button" 
-                            aria-label="Mostrar ou ocultar filtros" 
-                            aria-controls="filtros-dashboard" 
-                            aria-expanded={mostrarFiltros} 
-                            onClick={() => setMostrarFiltros(!mostrarFiltros)}
-                        >
-                            <SlidersHorizontal className="h-4 w-4" />
-                        </button>
-                        <div className="h-8 w-px bg-slate-200" />
-                        <label className="relative block min-w-0 flex-1">
-                            <span className="sr-only">Buscar farmácia, endereço ou data</span>
-                            <input
-                                className="h-9 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-sky-500 focus:ring-4 focus:ring-sky-100"
-                                placeholder="Buscar farmácia, endereço ou data"
-                                value={buscaFarmacia}
-                                onChange={(evento) => setBuscaFarmacia(evento.target.value)}
-                            />
-                        </label>
-                    </div>
-
-                    {/* NOVO LOCAL DO FILTRO: Acoplado perfeitamente abaixo da barra de buscas */}
-                    {mostrarFiltros && (
-                        <aside className="mb-5 rounded-lg border border-slate-200 bg-slate-50/50 p-4 shadow-inner animate-in fade-in slide-in-from-top-2 duration-200" id="filtros-dashboard">
-                            <div className="mb-3 flex items-center justify-between gap-3">
-                                <h3 className="text-xs font-extrabold uppercase tracking-wider text-slate-500">Filtrar Resultados</h3>
-                                <button
-                                    className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-bold text-slate-700 shadow-sm transition hover:border-sky-300 hover:bg-sky-50 hover:text-blue-800 focus:outline-none"
-                                    type="button"
-                                    onClick={limparFiltros}
-                                    aria-label="Limpar todos os filtros"
-                                >
-                                    <X className="h-3 w-3" />
-                                    Limpar Filtros
+                <div className="min-w-0 space-y-5">
+                    <section className="border-b border-slate-300 pb-5">
+                        <div className="flex flex-wrap items-end justify-between gap-4">
+                            <div>
+                                <p className="text-xs font-bold uppercase text-blue-700">{administrador ? 'Controle administrativo' : 'Minhas avaliações'}</p>
+                                <h1 className="mt-1 text-2xl font-extrabold text-blue-950 sm:text-3xl">
+                                    {administrador ? 'Visão geral das avaliações' : `Olá, ${usuario?.nome?.split(' ')[0] || 'avaliador'}`}
+                                </h1>
+                                <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
+                                    {administrador
+                                        ? 'Consulte todas as avaliações, identifique pontos de atenção e exporte relatórios.'
+                                        : 'Acompanhe somente as avaliações realizadas por você.'}
+                                </p>
+                            </div>
+                            {!administrador && (
+                                <button className="inline-flex h-10 items-center gap-2 rounded-md bg-blue-700 px-4 text-sm font-bold text-white hover:bg-blue-800" type="button" onClick={() => navigate('/nova-avaliacao')}>
+                                    <PlusCircle className="h-4 w-4" /> Nova avaliação
                                 </button>
-                            </div>
-
-                            {/* Grid responsiva: 1 coluna no celular, 5 colunas lado a lado no PC */}
-                            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
-                                <FiltroSelect label="Cidade" value={filtros.cidade} onChange={(valor) => alterarFiltro('cidade', valor)} options={cidades} />
-                                <FiltroSelect label="Avaliador" value={filtros.avaliador} onChange={(valor) => alterarFiltro('avaliador', valor)} options={avaliadores} />
-                                <FiltroData label="Data inicial" value={filtros.dataInicio} onChange={(valor) => alterarFiltro('dataInicio', valor)} />
-                                <FiltroData label="Data final" value={filtros.dataFim} onChange={(valor) => alterarFiltro('dataFim', valor)} />
-
-                                <label className="block">
-                                    <span className="mb-1.5 block text-xs font-bold uppercase text-slate-500">Nota mínima</span>
-                                    <select className="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm outline-none focus:border-sky-500 focus:ring-4 focus:ring-sky-100" value={filtros.notaMinima} onChange={(evento) => alterarFiltro('notaMinima', evento.target.value)}>
-                                        <option value="">Todas</option>
-                                        <option value="3">3,0+</option>
-                                        <option value="4">4,0+</option>
-                                        <option value="4.5">4,5+</option>
-                                    </select>
-                                </label>
-                            </div>
-                        </aside>
-                    )}
-
-                    {erroCarregar && (
-                        <div className="mb-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800">
-                            {erroCarregar}
+                            )}
                         </div>
-                    )}
+                    </section>
 
-                    {carregando && (
-                        <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-5 text-center text-sm font-semibold text-slate-500">
-                            Carregando avaliações...
-                        </div>
-                    )}
+                    <section className={`grid gap-3 ${administrador ? 'grid-cols-2 xl:grid-cols-5' : 'grid-cols-2 lg:grid-cols-4'}`}>
+                        <Metrica icone={<ClipboardCheck />} titulo="Avaliações" valor={metricas.total} />
+                        <Metrica icone={<Building2 />} titulo="Farmácias" valor={metricas.farmacias} />
+                        {administrador && <Metrica icone={<UsersRound />} titulo="Avaliadores" valor={metricas.avaliadores} />}
+                        <Metrica icone={<Star />} titulo="Média geral" valor={metricas.media} destaque />
+                        <Metrica icone={<AlertTriangle />} titulo="Pontos de atenção" valor={metricas.atencao} alerta />
+                    </section>
 
-                    {/* Cards Mobile */}
-                    <div className="space-y-3 sm:hidden">
-                        {farmaciasFiltradas.map((farmacia) => (
-                            <FarmaciaCard farmacia={farmacia} key={farmacia.id} onClick={() => abrirRelatorio(farmacia.id)} />
-                        ))}
-                    </div>
-
-                    {/* Tabela Desktop */}
-                    <div className="hidden overflow-x-auto sm:block">
-                        <table className="w-full min-w-[680px] text-left text-sm">
-                            <caption className="sr-only">Últimas farmácias avaliadas. Clique em uma linha para abrir o relatório da avaliação.</caption>
-                            <thead className="border-b border-slate-200 text-slate-500">
-                                <tr>
-                                    <th className="w-[30%] px-3 py-3 font-bold" scope="col">Farmácia</th>
-                                    <th className="w-[18%] px-3 py-3 font-bold" scope="col">Avaliador</th>
-                                    <th className="w-[18%] px-3 py-3 font-bold" scope="col">Endereço</th>
-                                    <th className="w-[10%] px-3 py-3 text-center font-bold" scope="col">Média</th>
-                                    <th className="w-[24%] px-3 py-3 font-bold" scope="col">Avaliado em</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {farmaciasFiltradas.map((farmacia) => (
-                                    <tr
-                                        className="cursor-pointer border-b border-slate-100 hover:bg-slate-50 focus:bg-slate-50 focus:outline-none"
-                                        key={farmacia.id}
-                                        onClick={() => abrirRelatorio(farmacia.id)}
-                                        onKeyDown={(evento) => abrirRelatorioComTeclado(evento, farmacia.id)}
-                                        role="button"
-                                        tabIndex={0}
-                                        aria-label={`Abrir relatório de ${farmacia.farmacia}, avaliada por ${farmacia.avaliador} em ${farmacia.dataTexto}`}
+                    <section className="rounded-lg border border-slate-200 bg-white shadow-sm">
+                        <div className="border-b border-slate-200 p-4 sm:p-5">
+                            <div className="flex flex-wrap items-center justify-between gap-3">
+                                <div>
+                                    <h2 className="text-lg font-extrabold text-blue-950">Central de avaliações</h2>
+                                    <p className="mt-1 text-xs text-slate-500">{avaliacoesFiltradas.length} resultado(s) encontrado(s)</p>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    {totalFiltrosAtivos > 0 && (
+                                        <button className="inline-flex h-9 items-center gap-2 rounded-md border border-slate-200 px-3 text-xs font-bold text-slate-600 hover:border-blue-300 hover:text-blue-700" type="button" onClick={limparFiltros}>
+                                            <X className="h-3.5 w-3.5" /> Limpar
+                                        </button>
+                                    )}
+                                    <button
+                                        className={`inline-flex h-9 items-center gap-2 rounded-md border px-3 text-xs font-bold transition ${filtrosAbertos || totalFiltrosAtivos > 0 ? 'border-blue-300 bg-blue-50 text-blue-700' : 'border-slate-200 text-slate-600 hover:border-blue-300 hover:text-blue-700'}`}
+                                        type="button"
+                                        onClick={() => setFiltrosAbertos((abertos) => !abertos)}
+                                        aria-expanded={filtrosAbertos}
+                                        aria-controls="filtros-avaliacoes"
                                     >
-                                        <td className="px-3 py-3">
-                                            <p className="font-semibold text-slate-800">{farmacia.farmacia}</p>
-                                            <p className="text-xs text-slate-500">CNPJ {farmacia.cnpj}</p>
-                                        </td>
-                                        <td className="px-3 py-3 text-slate-600">{farmacia.avaliador}</td>
-                                        <td className="px-3 py-3 text-slate-600">{farmacia.endereco}</td>
-                                        <td className="px-3 py-3 text-center font-bold text-blue-950">{farmacia.notaGeral}</td>
-                                        <td className="px-3 py-3 text-slate-600">{farmacia.dataTexto}, {farmacia.hora}</td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
+                                        <Filter className="h-3.5 w-3.5" />
+                                        Filtros
+                                        {totalFiltrosAtivos > 0 && <span className="rounded bg-blue-700 px-1.5 py-0.5 text-[10px] text-white">{totalFiltrosAtivos}</span>}
+                                        <ChevronDown className={`h-3.5 w-3.5 transition-transform ${filtrosAbertos ? 'rotate-180' : ''}`} />
+                                    </button>
+                                </div>
+                            </div>
 
-                    {!carregando && farmaciasFiltradas.length === 0 && (
-                        <div className="rounded-lg border border-dashed border-slate-300 bg-slate-50 p-5 text-center text-sm font-semibold text-slate-500">
-                            Nenhuma farmácia encontrada.
+                            <div className="relative mt-4">
+                                <label className="sr-only" htmlFor="busca-avaliacoes">Pesquisar avaliações</label>
+                                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                                <input
+                                    className="h-11 w-full rounded-md border border-slate-300 bg-white pl-10 pr-11 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                                    id="busca-avaliacoes"
+                                    placeholder={administrador ? 'Pesquisar farmácia, CNPJ, avaliador, endereço, classificação, observação ou critério...' : 'Pesquisar nas suas avaliações...'}
+                                    value={busca}
+                                    onChange={(evento) => {
+                                        setBusca(evento.target.value);
+                                        setSugestoesAbertas(true);
+                                    }}
+                                    onFocus={() => setSugestoesAbertas(true)}
+                                    onBlur={() => setTimeout(() => setSugestoesAbertas(false), 150)}
+                                    autoComplete="off"
+                                    aria-autocomplete="list"
+                                    aria-expanded={sugestoesAbertas && sugestoesBusca.length > 0}
+                                    aria-controls="sugestoes-busca"
+                                />
+                                {busca && (
+                                    <button
+                                        className="absolute right-2 top-1/2 grid h-7 w-7 -translate-y-1/2 place-items-center rounded-md text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+                                        type="button"
+                                        onMouseDown={(evento) => evento.preventDefault()}
+                                        onClick={() => setBusca('')}
+                                        aria-label="Limpar pesquisa"
+                                    >
+                                        <X className="h-3.5 w-3.5" />
+                                    </button>
+                                )}
+                                {sugestoesAbertas && sugestoesBusca.length > 0 && (
+                                    <span className="absolute left-0 right-0 top-[calc(100%+6px)] z-30 overflow-hidden rounded-md border border-slate-200 bg-white text-left shadow-xl" id="sugestoes-busca" role="listbox">
+                                        {sugestoesBusca.map((sugestao) => (
+                                            <button
+                                                className="flex w-full items-center justify-between gap-3 border-b border-slate-100 px-3 py-2.5 text-left last:border-0 hover:bg-blue-50"
+                                                type="button"
+                                                role="option"
+                                                key={`${sugestao.tipo}-${sugestao.valor}`}
+                                                onMouseDown={(evento) => evento.preventDefault()}
+                                                onClick={() => {
+                                                    setBusca(sugestao.valor);
+                                                    setSugestoesAbertas(false);
+                                                }}
+                                            >
+                                                <span className="min-w-0">
+                                                    <span className="block truncate text-sm font-bold text-slate-800">{sugestao.valor}</span>
+                                                    <span className="mt-0.5 block truncate text-xs text-slate-500">{sugestao.detalhe}</span>
+                                                </span>
+                                                <span className="shrink-0 rounded-md bg-slate-100 px-2 py-1 text-[10px] font-bold uppercase text-slate-500">{sugestao.tipo}</span>
+                                            </button>
+                                        ))}
+                                    </span>
+                                )}
+                            </div>
+
+                            {filtrosAbertos && (
+                                <div className="mt-3 rounded-md border border-slate-200 bg-slate-50 p-3" id="filtros-avaliacoes">
+                                    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                                        <FiltroSelect label="Cidade" valor={filtros.cidade} opcoes={opcoes.cidades} onChange={(valor) => alterarFiltro('cidade', valor)} />
+                                        {administrador && <FiltroSelect label="Avaliador" valor={filtros.avaliador} opcoes={opcoes.avaliadores} onChange={(valor) => alterarFiltro('avaliador', valor)} />}
+                                        <FiltroSelect label="Classificação" valor={filtros.classificacao} opcoes={opcoes.classificacoes} onChange={(valor) => alterarFiltro('classificacao', valor)} />
+                                        <FiltroSelect label="Ordenar" valor={filtros.ordenacao} onChange={(valor) => alterarFiltro('ordenacao', valor)} opcoesComValor={[
+                                            ['recentes', 'Mais recentes'], ['antigas', 'Mais antigas'], ['maiorNota', 'Maior nota'], ['menorNota', 'Menor nota'], ['farmacia', 'Farmácia A-Z']
+                                        ]} icone={<ArrowDownUp />} />
+                                        <FiltroData label="Data inicial" valor={filtros.dataInicio} onChange={(valor) => alterarFiltro('dataInicio', valor)} />
+                                        <FiltroData label="Data final" valor={filtros.dataFim} onChange={(valor) => alterarFiltro('dataFim', valor)} />
+                                        <FiltroNota label="Nota mínima" valor={filtros.notaMinima} onChange={(valor) => alterarFiltro('notaMinima', valor)} />
+                                        <FiltroNota label="Nota máxima" valor={filtros.notaMaxima} onChange={(valor) => alterarFiltro('notaMaxima', valor)} />
+                                    </div>
+                                </div>
+                            )}
                         </div>
-                    )}
-                </section>
-            </div>
 
-            {tipoUsuario === 'avaliador' && (
-                <button
-                    className="fixed bottom-4 left-4 right-4 z-10 flex h-12 items-center justify-center gap-2 rounded-md bg-blue-700 text-sm font-extrabold text-white shadow-lg shadow-blue-900/20 hover:bg-blue-800 sm:hidden"
-                    type="button"
-                    onClick={() => navigate('/nova-avaliacao')}
-                >
-                    <PlusCircle className="h-5 w-5" />
-                    Nova avaliação
-                </button>
-            )}
+                        {mensagem && <div className="m-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm font-semibold text-amber-800">{mensagem}</div>}
+                        {carregando && <EstadoVazio icone={<FileSearch />} texto="Carregando avaliações..." />}
+
+                        {!carregando && (
+                            <>
+                                <div className="space-y-3 p-4 sm:hidden">
+                                    {avaliacoesFiltradas.map((avaliacao) => (
+                                        <AvaliacaoCard key={avaliacao.id} avaliacao={avaliacao} onAbrir={() => navigate(`/relatorio-avaliacao/${avaliacao.id}`)} onExportar={(evento) => exportar(evento, avaliacao)} />
+                                    ))}
+                                </div>
+
+                                <div className="hidden overflow-x-auto sm:block">
+                                    <table className="w-full min-w-[900px] text-left text-sm">
+                                        <thead className="bg-slate-50 text-xs uppercase text-slate-500">
+                                            <tr>
+                                                <th className="px-5 py-3 font-bold">Farmácia</th>
+                                                {administrador && <th className="px-4 py-3 font-bold">Avaliador</th>}
+                                                <th className="px-4 py-3 font-bold">Localização</th>
+                                                <th className="px-4 py-3 font-bold">Data</th>
+                                                <th className="px-4 py-3 text-center font-bold">Nota</th>
+                                                <th className="px-5 py-3 text-right font-bold">Ações</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {avaliacoesFiltradas.map((avaliacao) => (
+                                                <tr className="border-t border-slate-100 hover:bg-slate-50" key={avaliacao.id}>
+                                                    <td className="px-5 py-4">
+                                                        <p className="font-extrabold text-blue-950">{avaliacao.farmacia}</p>
+                                                        <p className="mt-1 text-xs text-slate-500">CNPJ {avaliacao.cnpj}</p>
+                                                        <Classificacao avaliacao={avaliacao} />
+                                                    </td>
+                                                    {administrador && <td className="px-4 py-4 text-slate-700">{avaliacao.avaliador}</td>}
+                                                    <td className="max-w-[230px] px-4 py-4 text-slate-600">
+                                                        <p className="truncate">{avaliacao.cidade || 'Não informada'}</p>
+                                                        <p className="mt-1 truncate text-xs text-slate-400">{avaliacao.endereco}</p>
+                                                    </td>
+                                                    <td className="px-4 py-4 text-slate-600">{avaliacao.dataTexto}<p className="mt-1 text-xs text-slate-400">{avaliacao.hora}</p></td>
+                                                    <td className="px-4 py-4 text-center"><Nota valor={avaliacao.notaGeral} /></td>
+                                                    <td className="px-5 py-4">
+                                                        <div className="flex justify-end gap-2">
+                                                            <Acao icone={<Eye />} titulo="Visualizar" onClick={() => navigate(`/relatorio-avaliacao/${avaliacao.id}`)} />
+                                                            <Acao icone={<Download />} titulo="Exportar PDF" onClick={(evento) => exportar(evento, avaliacao)} />
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </>
+                        )}
+
+                        {!carregando && avaliacoesFiltradas.length === 0 && <EstadoVazio icone={<FileSearch />} texto="Nenhuma avaliação corresponde aos filtros selecionados." />}
+                    </section>
+                </div>
+            </div>
         </main>
     );
 }
 
-function calcularMedia(lista) {
-    if (!lista || lista.length === 0) {
-        return '0,0';
-    }
-    const total = lista.reduce((soma, item) => soma + Number(String(item.notaGeral).replace(',', '.')) || 0, 0);
-    return (total / lista.length).toFixed(1).replace('.', ',');
+function normalizarTexto(valor) {
+    return String(valor || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 }
 
-function MenuItem({ icone, texto, ativo = false, danger = false, onClick, className = '' }) {
-    const estiloBase = danger
-        ? 'text-red-600 hover:bg-red-50 active:bg-red-200'
-        : ativo
-            ? 'bg-blue-700 text-white hover:bg-blue-800 active:bg-blue-900'
-            : 'text-slate-600 hover:bg-slate-100 active:bg-slate-200/80';
+function obterNota(item) {
+    return Number(String(item.notaGeral || 0).replace(',', '.')) || 0;
+}
 
+function unicos(lista) {
+    return [...new Set(lista.filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
+}
+
+function ordenarAvaliacoes(a, b, ordem) {
+    if (ordem === 'antigas') return String(a.data).localeCompare(String(b.data));
+    if (ordem === 'maiorNota') return obterNota(b) - obterNota(a);
+    if (ordem === 'menorNota') return obterNota(a) - obterNota(b);
+    if (ordem === 'farmacia') return a.farmacia.localeCompare(b.farmacia, 'pt-BR');
+    return String(b.data).localeCompare(String(a.data));
+}
+
+function MenuItem({ icone, texto, ativo, danger, onClick, className = '' }) {
     return (
-        <button 
-            className={`
-                flex w-full items-center gap-3 rounded-md px-3 py-2.5 text-left text-sm font-semibold 
-                transition-colors duration-75 select-none touch-manipulation
-                ${estiloBase} \${className}
-            `} 
-            type="button" 
-            onClick={onClick} 
-            aria-current={ativo ? 'page' : undefined}
-        >
-            <span className="flex h-5 w-5 shrink-0 items-center justify-center [&_svg]:h-4 [&_svg]:w-4">
-                {icone}
-            </span>
-            <span className="truncate">{texto}</span>
+        <button className={`flex min-h-14 w-full flex-col items-center justify-center gap-1 rounded-md px-2 text-[10px] font-bold lg:min-h-10 lg:flex-row lg:justify-start lg:gap-2 lg:text-sm ${ativo ? 'bg-blue-700 text-white' : danger ? 'text-red-600 hover:bg-red-50' : 'text-slate-600 hover:bg-slate-100'} ${className}`} type="button" onClick={onClick}>
+            <span className="[&_svg]:h-4 [&_svg]:w-4">{icone}</span><span>{texto}</span>
         </button>
     );
 }
 
-function Card({ titulo, valor, estrela = false, destaque = false }) {
+function Metrica({ icone, titulo, valor, destaque, alerta }) {
     return (
-        <div className={`rounded-lg border border-slate-200 bg-white p-4 text-center shadow-sm \${destaque ? 'col-span-2 sm:col-span-1' : ''}`}>
-            <p className="text-xs font-semibold uppercase text-slate-500 sm:text-sm sm:normal-case">{titulo}</p>
-            <p className="mt-2 flex items-center justify-center gap-2 text-2xl font-extrabold text-blue-950 sm:text-3xl">
-                {estrela && <Star className="h-6 w-6 fill-yellow-400 text-yellow-400 sm:h-7 sm:w-7" />}
-                {valor}
-            </p>
+        <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+            <div className={`grid h-8 w-8 place-items-center rounded-md ${alerta ? 'bg-amber-100 text-amber-700' : destaque ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-600'} [&_svg]:h-4 [&_svg]:w-4`}>{icone}</div>
+            <p className="mt-4 text-xs font-bold uppercase text-slate-500">{titulo}</p>
+            <p className="mt-1 text-2xl font-extrabold text-blue-950">{valor}</p>
         </div>
     );
 }
 
-function FarmaciaCard({ farmacia, onClick }) {
-    return (
-        <button className="w-full rounded-lg border border-slate-200 bg-slate-50 p-3 text-left hover:border-sky-300 hover:bg-white focus:border-sky-500 focus:bg-white focus:outline-none focus:ring-4 focus:ring-sky-100" type="button" onClick={onClick}>
-            <div className="flex items-start justify-between gap-3">
-                <div>
-                    <h3 className="text-sm font-extrabold text-slate-900">{farmacia.farmacia}</h3>
-                    <p className="mt-1 text-xs text-slate-500">{farmacia.cidade ? `\${farmacia.cidade} • \${farmacia.avaliador}` : farmacia.avaliador}</p>
-                    <p className="mt-1 text-xs text-slate-500">CNPJ {farmacia.cnpj}</p>
-                </div>
-                <div className="shrink-0 text-right">
-                    <p className="text-xs font-extrabold text-blue-950">★ {farmacia.notaGeral}</p>
-                    <p className="mt-1 text-xs font-semibold text-slate-500">{farmacia.hora}</p>
-                </div>
-            </div>
-            <p className="mt-2 text-xs font-semibold text-slate-500">{farmacia.endereco}</p>
-            <p className="mt-1 text-xs font-semibold text-slate-500">{farmacia.dataTexto}</p>
-        </button>
-    );
-}
-
-function FiltroSelect({ label, value, onChange, options }) {
+function FiltroSelect({ label, valor, opcoes = [], opcoesComValor, onChange, icone }) {
     return (
         <label className="block">
-            <span className="mb-1.5 block text-xs font-bold uppercase text-slate-500">{label}</span>
-            <select className="h-10 w-full rounded-md border border-slate-200 bg-white px-3 text-sm outline-none focus:border-sky-500 focus:ring-4 focus:ring-sky-100" value={value} onChange={(evento) => onChange(evento.target.value)}>
-                <option value="">Todos</option>
-                {options.map((option) => (
-                    <option value={option} key={option}>{option}</option>
-                ))}
-            </select>
+            <span className="mb-1 block text-[11px] font-bold uppercase text-slate-500">{label}</span>
+            <span className="relative block">
+                {icone && <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 [&_svg]:h-4 [&_svg]:w-4">{icone}</span>}
+                <select className={`h-10 w-full rounded-md border border-slate-200 bg-white pr-3 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100 ${icone ? 'pl-9' : 'px-3'}`} value={valor} onChange={(evento) => onChange(evento.target.value)}>
+                    {!opcoesComValor && <option value="">Todos</option>}
+                    {(opcoesComValor || opcoes.map((opcao) => [opcao, opcao])).map(([value, texto]) => <option value={value} key={value}>{texto}</option>)}
+                </select>
+            </span>
         </label>
     );
 }
 
-// Corrigido para fechar a tag de abertura adequadamente
-function FiltroData({ label, value, onChange }) {
+function FiltroData({ label, valor, onChange }) {
     return (
-        <label className="block">
-            <span className="mb-1.5 block text-xs font-bold uppercase text-slate-500">{label}</span>
-            <div className="relative">
+        <label>
+            <span className="mb-1 block text-[11px] font-bold uppercase text-slate-500">{label}</span>
+            <span className="relative block">
                 <CalendarDays className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-                <input className="h-10 w-full rounded-md border border-slate-200 bg-white pl-10 pr-3 text-sm outline-none focus:border-sky-500 focus:ring-4 focus:ring-sky-100" type="date" value={value} onChange={(evento) => onChange(evento.target.value)} />
-            </div>
+                <input className="h-10 w-full rounded-md border border-slate-200 pl-9 pr-3 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100" type="date" value={valor} onChange={(evento) => onChange(evento.target.value)} />
+            </span>
         </label>
     );
+}
+
+function FiltroNota({ label, valor, onChange }) {
+    return (
+        <label>
+            <span className="mb-1 block text-[11px] font-bold uppercase text-slate-500">{label}</span>
+            <input className="h-10 w-full rounded-md border border-slate-200 px-3 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100" min="1" max="5" step="0.1" type="number" value={valor} onChange={(evento) => onChange(evento.target.value)} placeholder="1,0 a 5,0" />
+        </label>
+    );
+}
+
+function Nota({ valor }) {
+    const alerta = obterNota({ notaGeral: valor }) < 3.5;
+    return <span className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-extrabold ${alerta ? 'bg-amber-100 text-amber-800' : 'bg-blue-50 text-blue-800'}`}><Star className="h-3.5 w-3.5 fill-current" />{valor}</span>;
+}
+
+function Classificacao({ avaliacao }) {
+    return <span className="mt-2 inline-block rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-bold uppercase text-slate-600">{avaliacao.classificacao}</span>;
+}
+
+function Acao({ icone, titulo, onClick }) {
+    return <button className="grid h-9 w-9 place-items-center rounded-md border border-slate-200 text-slate-600 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 [&_svg]:h-4 [&_svg]:w-4" type="button" title={titulo} aria-label={titulo} onClick={onClick}>{icone}</button>;
+}
+
+function AvaliacaoCard({ avaliacao, onAbrir, onExportar }) {
+    return (
+        <article className="rounded-lg border border-slate-200 p-4">
+            <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0"><h3 className="truncate font-extrabold text-blue-950">{avaliacao.farmacia}</h3><p className="mt-1 truncate text-xs text-slate-500">CNPJ {avaliacao.cnpj}</p></div>
+                <Nota valor={avaliacao.notaGeral} />
+            </div>
+            <p className="mt-3 text-xs text-slate-600">{avaliacao.avaliador} · {avaliacao.dataTexto}</p>
+            <p className="mt-1 truncate text-xs text-slate-500">{avaliacao.endereco}</p>
+            <div className="mt-4 grid grid-cols-2 gap-2">
+                <button className="inline-flex h-9 items-center justify-center gap-2 rounded-md bg-blue-700 text-xs font-bold text-white" type="button" onClick={onAbrir}><Eye className="h-4 w-4" /> Visualizar</button>
+                <button className="inline-flex h-9 items-center justify-center gap-2 rounded-md border border-slate-200 text-xs font-bold text-blue-700" type="button" onClick={onExportar}><Download className="h-4 w-4" /> PDF</button>
+            </div>
+        </article>
+    );
+}
+
+function EstadoVazio({ icone, texto }) {
+    return <div className="m-4 grid min-h-32 place-items-center rounded-lg border border-dashed border-slate-300 bg-slate-50 p-6 text-center text-sm font-semibold text-slate-500"><div><span className="mx-auto mb-2 block w-fit [&_svg]:h-5 [&_svg]:w-5">{icone}</span>{texto}</div></div>;
 }

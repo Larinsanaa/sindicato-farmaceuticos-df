@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, CalendarDays, ClipboardCheck, Clock, Filter, MapPin, Search, Star, UserRound } from 'lucide-react';
 import Cabecalho from '../../components/Cabecalho.jsx';
 import { avaliacoes as avaliacoesMock } from '../../data/avaliacoes.js';
-import { apiFetch } from '../../lib/api.js';
+import { apiFetch, obterUsuarioLogado } from '../../lib/api.js';
 import { normalizarListaAvaliacoes } from '../../lib/avaliacoes.js';
 
 export default function HistoricoAvaliacoes() {
@@ -14,6 +14,8 @@ export default function HistoricoAvaliacoes() {
     const [carregando, setCarregando] = useState(true);
     const [erroCarregar, setErroCarregar] = useState('');
     const [avaliacoesBase, setAvaliacoesBase] = useState([]);
+    const usuario = useMemo(() => obterUsuarioLogado(), []);
+    const administrador = usuario?.tipo === 'presidente';
 
     useEffect(() => {
         let ativo = true;
@@ -25,20 +27,17 @@ export default function HistoricoAvaliacoes() {
             try {
                 const resposta = await apiFetch('/api/avaliacoes');
                 const lista = Array.isArray(resposta?.avaliacoes) ? resposta.avaliacoes : [];
-                const normalizadas = lista.length > 0
-                    ? normalizarListaAvaliacoes(lista, avaliacoesMock)
-                    : normalizarListaAvaliacoes(avaliacoesMock, avaliacoesMock);
+                const normalizadas = normalizarListaAvaliacoes(lista);
 
                 if (ativo) {
                     setAvaliacoesBase(normalizadas);
-                    if (lista.length === 0) {
-                        setErroCarregar('Mostrando dados de exemplo até o backend retornar avaliações.');
-                    }
                 }
             } catch (error) {
                 if (ativo) {
-                    setAvaliacoesBase(normalizarListaAvaliacoes(avaliacoesMock, avaliacoesMock));
-                    setErroCarregar('Não foi possível carregar o histórico real. Exibindo dados de exemplo.');
+                    setAvaliacoesBase(administrador ? normalizarListaAvaliacoes(avaliacoesMock, avaliacoesMock) : []);
+                    setErroCarregar(administrador
+                        ? 'API indisponível. Exibindo dados administrativos de demonstração.'
+                        : '');
                 }
             } finally {
                 if (ativo) {
@@ -52,7 +51,7 @@ export default function HistoricoAvaliacoes() {
         return () => {
             ativo = false;
         };
-    }, []);
+    }, [administrador]);
 
     const avaliacoesFiltradas = useMemo(() => {
         const termo = busca.trim().toLowerCase();

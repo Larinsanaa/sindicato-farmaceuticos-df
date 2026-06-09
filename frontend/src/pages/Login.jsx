@@ -1,6 +1,6 @@
 ﻿import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Eye, EyeOff, Lock, Mail, ShieldCheck, UserRound } from 'lucide-react';
+import { CreditCard, Eye, EyeOff, Lock, Mail, ShieldCheck, UserRound } from 'lucide-react';
 import Cabecalho from '../components/Cabecalho.jsx';
 import TopoOndas from '../components/TopoOndas.jsx';
 import { apiFetch, limparSessao, salvarSessao } from '../lib/api.js';
@@ -15,7 +15,7 @@ export default function Login() {
     const [tipoLogin, setTipoLogin] = useState('avaliador');
 
     const [login, setLogin] = useState({ email: '', senha: '' });
-    const [cadastro, setCadastro] = useState({ nome: '', email: '', senha: '', confirmarSenha: '', tipo: 'avaliador' });
+    const [cadastro, setCadastro] = useState({ nome: '', cpf: '', email: '', senha: '', confirmarSenha: '', tipo: 'avaliador' });
 
     function mudarTela(novaTela) {
         setTela(novaTela);
@@ -74,13 +74,14 @@ export default function Login() {
                 method: 'POST',
                 body: JSON.stringify({
                     nome: cadastro.nome,
+                    cpf: cadastro.cpf,
                     email: cadastro.email,
                     senha: cadastro.senha,
                     tipo: cadastro.tipo
                 })
             });
 
-            setCadastro({ nome: '', email: '', senha: '', confirmarSenha: '', tipo: 'avaliador' });
+            setCadastro({ nome: '', cpf: '', email: '', senha: '', confirmarSenha: '', tipo: 'avaliador' });
             setTela('login');
             setMensagem('Conta criada com sucesso.');
         } catch (error) {
@@ -127,6 +128,7 @@ export default function Login() {
                                 </div>
 
                                 <Campo texto="Nome completo" icone={<UserRound />} valor={cadastro.nome} onChange={(e) => setCadastro({ ...cadastro, nome: e.target.value })} />
+                                <Campo texto="CPF" icone={<CreditCard />} valor={cadastro.cpf} onChange={(e) => setCadastro({ ...cadastro, cpf: e.target.value })} />
                                 <Campo texto="E-mail" tipo="email" icone={<Mail />} valor={cadastro.email} onChange={(e) => setCadastro({ ...cadastro, email: e.target.value })} />
 
                                 <label className="block">

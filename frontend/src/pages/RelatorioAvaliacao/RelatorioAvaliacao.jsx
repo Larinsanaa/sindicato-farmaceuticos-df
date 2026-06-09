@@ -3,8 +3,9 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Download, Loader2, Send, Star } from 'lucide-react';
 import Cabecalho from '../../components/Cabecalho.jsx';
 import { avaliacoes as avaliacoesMock } from '../../data/avaliacoes.js';
-import { apiFetch } from '../../lib/api.js';
+import { apiFetch, obterUsuarioLogado } from '../../lib/api.js';
 import { normalizarAvaliacao, normalizarDetalheAvaliacao } from '../../lib/avaliacoes.js';
+import { exportarAvaliacaoPdf } from '../../lib/exportarRelatorio.js';
 
 export default function RelatorioAvaliacao() {
     const navigate = useNavigate();
@@ -12,8 +13,22 @@ export default function RelatorioAvaliacao() {
     const [carregando, setCarregando] = useState(true);
     const [erro, setErro] = useState('');
     const [avaliacao, setAvaliacao] = useState(null);
+    const [erroExportar, setErroExportar] = useState('');
 
-    const fallback = useMemo(() => avaliacoesMock.find((item) => item.id === id), [id]);
+    const usuario = useMemo(() => obterUsuarioLogado(), []);
+    const fallback = useMemo(
+        () => usuario?.tipo === 'presidente' ? avaliacoesMock.find((item) => item.id === id) : null,
+        [id, usuario?.tipo]
+    );
+
+    function exportar() {
+        try {
+            setErroExportar('');
+            exportarAvaliacaoPdf(avaliacao);
+        } catch (error) {
+            setErroExportar(error.message);
+        }
+    }
 
     useEffect(() => {
         let ativo = true;
@@ -90,6 +105,11 @@ export default function RelatorioAvaliacao() {
                         {erro}
                     </div>
                 )}
+                {erroExportar && (
+                    <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm font-semibold text-amber-800">
+                        {erroExportar}
+                    </div>
+                )}
 
                 <section className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
                     <div className="text-center">
@@ -125,7 +145,7 @@ export default function RelatorioAvaliacao() {
                     </div>
 
                     <div className="mt-5 grid gap-3">
-                        <button className="flex h-12 items-center justify-center gap-2 rounded-md bg-blue-700 text-sm font-extrabold text-white hover:bg-blue-800" type="button">
+                        <button className="flex h-12 items-center justify-center gap-2 rounded-md bg-blue-700 text-sm font-extrabold text-white hover:bg-blue-800" type="button" onClick={exportar}>
                             <Download className="h-5 w-5" />
                             Exportar relatório
                         </button>

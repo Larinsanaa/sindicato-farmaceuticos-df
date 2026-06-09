@@ -101,6 +101,7 @@ export function normalizarAvaliacao(item, fallback = {}) {
 
     return {
         id: String(item?.id ?? fallback.id ?? ''),
+        avaliadorId: String(item?.avaliador_id ?? fallback.avaliadorId ?? ''),
         farmacia: item?.farmacia || item?.name || fallback.farmacia || 'Farmácia',
         cnpj: item?.cnpj || fallback.cnpj || '',
         endereco: extrairEndereco(item) || fallback.endereco || '',
@@ -109,6 +110,7 @@ export function normalizarAvaliacao(item, fallback = {}) {
         notaGeral: notaGeral || fallback.notaGeral || '',
         classificacao: item?.classificacao || fallback.classificacao || 'Sem classificação',
         resumo: item?.resumo || fallback.resumo || '',
+        observacao: item?.observacao || fallback.observacao || '',
         criterios: normalizarCriterios(item).length > 0 ? normalizarCriterios(item) : (fallback.criterios || []),
         data: dataInfo.data || fallback.data || '',
         hora: dataInfo.hora || fallback.hora || '',
@@ -131,7 +133,7 @@ export function normalizarDetalheAvaliacao(payload, fallback = null) {
 
     const avaliacao = payload.avaliacao || payload;
     const respostas = Array.isArray(payload.respostas) ? payload.respostas : avaliacao?.respostas || [];
-    const criterioFonte = respostas.length > 0 ? { respostas } : avaliacao;
+    const criterioFonte = respostas.length > 0 ? { ...avaliacao, respostas } : avaliacao;
 
     return {
         ...normalizarAvaliacao(criterioFonte, fallback || {}),

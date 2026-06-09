@@ -70,7 +70,7 @@ class EvaluationController {
         return res.status(404).json({ error: 'Avaliação não encontrada.' });
       }
 
-      if (req.userRole !== 'presidente' && evaluation.avaliador_id !== req.userId) {
+      if (req.userRole !== 'presidente' && String(evaluation.avaliador_id) !== String(req.userId)) {
         return res.status(403).json({ error: 'Você não tem permissão para acessar esta avaliação.' });
       }
 
