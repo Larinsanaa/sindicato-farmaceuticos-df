@@ -1,14 +1,20 @@
+import logoSincofarma from '../assets/logosincofarma.png';
+import { Link } from 'react-router-dom';
+
 export default function Logo() {
     return (
-        <div className="flex items-center gap-3">
-            <div className="relative h-10 w-16">
-                <span className="absolute left-2 top-1 h-4 w-11 rotate-[-22deg] rounded-[100%_0_100%_0] bg-gradient-to-br from-lime-200 to-lime-700 shadow-md" />
-                <span className="absolute left-5 top-3 h-4 w-9 rotate-[-15deg] rounded-[100%_0_100%_0] bg-gradient-to-br from-sky-500 to-blue-950 shadow-md" />
+        <Link
+            className="flex min-w-0 items-center gap-2.5 rounded-md focus:outline-none focus:ring-4 focus:ring-sky-100"
+            to="/dashboard"
+            aria-label="Ir para o dashboard"
+        >
+            <span className="block h-11 w-20 shrink-0" aria-hidden="true">
+                <img alt="" className="h-full w-full object-contain" src={logoSincofarma} />
+            </span>
+            <div className="hidden min-w-0 sm:block">
+                <strong className="block truncate text-sm font-extrabold uppercase text-slate-900">Sincofarma-DF</strong>
+                <span className="block truncate text-xs font-medium text-slate-500">Sindicato dos Farmacêuticos</span>
             </div>
-            <div>
-                <strong className="block text-sm font-extrabold uppercase text-slate-900">Sindicato</strong>
-                <span className="text-xs font-medium text-slate-500">Farmacêuticos DF</span>
-            </div>
-        </div>
+        </Link>
     );
 }

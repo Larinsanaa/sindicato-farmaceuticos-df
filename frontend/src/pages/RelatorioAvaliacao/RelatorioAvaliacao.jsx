@@ -17,7 +17,12 @@ export default function RelatorioAvaliacao() {
 
     const usuario = useMemo(() => obterUsuarioLogado(), []);
     const fallback = useMemo(
-        () => usuario?.tipo === 'presidente' ? avaliacoesMock.find((item) => item.id === id) : null,
+        () => {
+            if (usuario?.tipo !== 'presidente') return null;
+            const idOriginal = String(id).replace(/^demo-/, '');
+            const encontrado = avaliacoesMock.find((item) => item.id === idOriginal);
+            return encontrado ? { ...encontrado, id, demonstracao: id.startsWith('demo-') } : null;
+        },
         [id, usuario?.tipo]
     );
 

@@ -45,10 +45,10 @@ export default function RelatorioFinalAvaliacao() {
                 <button
                     className="mb-4 flex items-center gap-2 rounded-md px-1 py-2 text-sm font-bold text-blue-900"
                     type="button"
-                    onClick={() => navigate('/avaliacao')}
+                    onClick={() => navigate('/dashboard')}
                 >
                     <ArrowLeft className="h-4 w-4" />
-                    Relatório final da avaliação
+                    Dashboard
                 </button>
 
                 <section className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-6">

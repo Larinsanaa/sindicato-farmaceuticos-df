@@ -101,6 +101,7 @@ export function normalizarAvaliacao(item, fallback = {}) {
 
     return {
         id: String(item?.id ?? fallback.id ?? ''),
+        demonstracao: Boolean(item?.demonstracao ?? fallback.demonstracao),
         avaliadorId: String(item?.avaliador_id ?? fallback.avaliadorId ?? ''),
         farmacia: item?.farmacia || item?.name || fallback.farmacia || 'Farmácia',
         cnpj: item?.cnpj || fallback.cnpj || '',

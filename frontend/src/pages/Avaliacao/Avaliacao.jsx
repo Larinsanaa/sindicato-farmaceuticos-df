@@ -32,7 +32,8 @@ export default function Avaliacao() {
     }
 
     function avaliarSecao(secaoIndex, valor) {
-        setNotasSecao((prev) => ({ ...prev, [secaoIndex]: valor }));
+        const nota = Math.max(1, Math.min(5, Number(valor)));
+        setNotasSecao((prev) => ({ ...prev, [secaoIndex]: nota }));
     }
 
     function alterarObservacao(secaoIndex, valor) {
@@ -270,10 +271,10 @@ export default function Avaliacao() {
 
                             <article className="rounded-lg border border-slate-200 bg-white p-4 sm:p-5">
                                 <label className="block">
-                                    <span className="mb-2 block text-sm font-bold text-slate-700">Observação da seção</span>
+                                    <span className="mb-2 block text-sm font-bold text-slate-700">Observação da seção <span className="font-medium text-slate-400">(opcional)</span></span>
                                     <textarea
                                         className="min-h-28 w-full rounded-md border border-slate-200 bg-white p-3 text-sm outline-none focus:border-sky-500 focus:ring-4 focus:ring-sky-100"
-                                        placeholder="Deixe aqui uma observação geral sobre esta seção..."
+                                        placeholder="Deixe aqui uma observação geral sobre esta seção, se necessário..."
                                         value={observacoesSecoes[secaoAtual] || ''}
                                         onChange={(evento) => alterarObservacao(secaoAtual, evento.target.value)}
                                     />

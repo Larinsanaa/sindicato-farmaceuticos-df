@@ -6,9 +6,12 @@ import UserController from '../controllers/user.controller.js';
 
 const routes = express.Router();
 
-routes.post('/register', AuthController.register);
-routes.post('/cadastro', AuthController.register);
 routes.post('/login', AuthController.login);
+routes.post('/avaliadores', authMiddleware, checkRole('presidente'), AuthController.registerEvaluator);
+routes.get('/avaliadores', authMiddleware, checkRole('presidente'), UserController.listEvaluators);
+routes.patch('/avaliadores/:id/status', authMiddleware, checkRole('presidente'), UserController.updateEvaluatorStatus);
+routes.post('/avaliadores/:id/link-redefinicao', authMiddleware, checkRole('presidente'), UserController.createPasswordResetLink);
+routes.patch('/redefinir-senha', UserController.resetPasswordWithToken);
 
 routes.get('/dashboard', authMiddleware, (req, res) => {
   console.log(`Acesso autorizado para usuário ID: ${req.userId}`);

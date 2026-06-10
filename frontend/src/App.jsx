@@ -8,6 +8,9 @@ import Perfil from './pages/Perfil/Perfil.jsx';
 import RelatorioAvaliacao from './pages/RelatorioAvaliacao/RelatorioAvaliacao.jsx';
 import RelatorioFinalAvaliacao from './pages/RelatorioFinalAvaliacao/RelatorioFinalAvaliacao.jsx';
 import Configuracao from './pages/Configuracao/Configuracao.jsx';
+import NavegacaoMobile from './components/NavegacaoMobile.jsx';
+import CadastroAvaliador from './pages/CadastroAvaliador/CadastroAvaliador.jsx';
+import RedefinirSenha from './pages/RedefinirSenha/RedefinirSenha.jsx';
 
 export default function App() {
     return (
@@ -24,7 +27,10 @@ export default function App() {
                 <Route path="/relatorio-avaliacao/:id" element={<RelatorioAvaliacao />} />
                 <Route path="*" element={<Navigate to="/dashboard" replace />} />
                 <Route path="/configuracao" element={<Configuracao />} />
+                <Route path="/cadastrar-avaliador" element={<CadastroAvaliador />} />
+                <Route path="/redefinir-senha" element={<RedefinirSenha />} />
             </Routes>
+            <NavegacaoMobile />
         </BrowserRouter>
     );
 }

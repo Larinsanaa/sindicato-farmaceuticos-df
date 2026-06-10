@@ -12,7 +12,7 @@ app.use('/api', evaluationRoutes);
 
 app.use((req, res) => {
   res.status(404).json({
-    error: 'Rota não encontrada. Use /register, /cadastro, /api/register, /api/cadastro, /auth/register ou /auth/cadastro.'
+    error: 'Rota não encontrada.'
   });
 });
 

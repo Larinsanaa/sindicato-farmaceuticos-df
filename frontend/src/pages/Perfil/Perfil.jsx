@@ -112,18 +112,17 @@ export default function Perfil() {
 
             <div className="mx-auto max-w-5xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
                 <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm sm:p-6">
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                        <button className="inline-flex h-11 items-center gap-2 rounded-md border border-slate-200 bg-white px-4 text-sm font-extrabold text-blue-700 hover:border-sky-300 hover:bg-sky-50" type="button" onClick={() => navigate('/dashboard')}>Dashboard</button>
-                        <div>
-                            <p className="text-xs font-bold uppercase text-blue-900/70 sm:text-sm">Perfil do usuário</p>
-                            <h1 className="mt-2 text-2xl font-extrabold text-blue-950 sm:text-3xl">Foto e dados de acesso</h1>
-                            <p className="mt-2 text-sm leading-6 text-slate-600">
+                    <div className="flex flex-wrap items-start justify-between gap-4 border-b border-slate-200 pb-5">
+                        <div className="max-w-2xl">
+                            <p className="text-[11px] font-bold uppercase text-blue-700 sm:text-xs">Perfil do usuário</p>
+                            <h1 className="mt-2 text-2xl font-extrabold leading-tight text-blue-950 sm:text-3xl">Foto e dados de acesso</h1>
+                            <p className="mt-3 max-w-xl text-sm leading-6 text-slate-600">
                                 Clique na foto para trocar a imagem do seu perfil. A foto aparece no cabeçalho do sistema após salvar.
                             </p>
                         </div>
 
                         <button
-                            className="inline-flex h-11 items-center gap-2 rounded-md border border-slate-200 bg-white px-4 text-sm font-extrabold text-red-600 hover:border-red-200 hover:bg-red-50"
+                            className="hidden h-11 items-center gap-2 rounded-md border border-slate-200 bg-white px-4 text-sm font-extrabold text-red-600 hover:border-red-200 hover:bg-red-50 sm:inline-flex"
                             type="button"
                             onClick={sair}
                         >
@@ -170,14 +169,25 @@ export default function Perfil() {
                                 <Info label="Nome" value={usuario?.nome || 'Não informado'} />
                                 <Info label="E-mail" value={usuario?.email || 'Não informado'} />
                                 <Info label="Tipo de usuário" value={usuario?.tipo === 'presidente' ? 'Administrador' : 'Avaliador'} />
-                                <Info label="Status da foto" value={fotoExibida ? 'Foto carregada' : 'Sem foto'} />
                             </div>
 
-                            <div className={`mt-5 rounded-lg border px-4 py-3 text-sm font-semibold ${erro ? 'border-red-200 bg-red-50 text-red-700' : 'border-slate-200 bg-slate-50 text-slate-600'}`}>
-                                {carregando ? 'Carregando perfil...' : mensagem || 'Atualize sua foto e ela aparecerá no cabeçalho do sistema.'}
-                            </div>
+                            {(carregando || mensagem || erro) && (
+                                <div className={`mt-5 rounded-lg border px-4 py-3 text-sm font-semibold ${erro ? 'border-red-200 bg-red-50 text-red-700' : 'border-slate-200 bg-slate-50 text-slate-600'}`}>
+                                    {carregando ? 'Carregando perfil...' : mensagem}
+                                </div>
+                            )}
                         </section>
+
                     </div>
+
+                    <button
+                        className="mt-6 flex h-12 w-full items-center justify-center gap-2 rounded-md border border-red-200 bg-red-50 text-sm font-extrabold text-red-700 hover:bg-red-100 sm:hidden"
+                        type="button"
+                        onClick={sair}
+                    >
+                        <LogOut className="h-5 w-5" />
+                        Sair da conta
+                    </button>
                 </div>
             </div>
         </main>
