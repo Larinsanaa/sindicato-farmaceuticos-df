@@ -1,28 +1,51 @@
 import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcrypt';
-import { supabase } from '../config/config.js';
-import { jwtSecret } from '../config/config.js';
+import { isDemoMode, supabase, jwtSecret } from '../config/config.js';
+import { demoUsers } from '../config/demoData.js';
 import { obterTipoUsuario } from '../utils/userRole.util.js';
 
 class UserController {
   async getProfile(req, res) {
     try {
+      if (isDemoMode) {
+        const user = demoUsers.find((item) => String(item.id) === String(req.userId));
+
+        if (!user) {
+          return res.status(404).json({ error: 'Usuário não encontrado.' });
+        }
+
+        return res.json({
+          user: {
+            id: user.id,
+            nome: user.nome,
+            email: user.email,
+            cpf: user.cpf || null,
+            tipo: user.tipo,
+            foto_perfil: user.foto_perfil || null
+          }
+        });
+      }
+
       const { data: user, error } = await supabase
         .from('usuarios')
-        .select('id, nome, email, cpf, nivel_acesso')
+        .select('id, nome, email, cpf, nivel_acesso, foto_perfil')
         .eq('id', req.userId)
         .single();
 
       if (error || !user) {
-        return res.status(404).json({ error: 'Usuario nao encontrado.' });
+        return res.status(404).json({ error: 'Usuário não encontrado.' });
       }
 
       return res.json({
-        user: { ...user, tipo: obterTipoUsuario(user), foto_perfil: null }
+        user: {
+          ...user,
+          tipo: obterTipoUsuario(user),
+          foto_perfil: user.foto_perfil || null
+        }
       });
     } catch {
-      return res.status(500).json({ error: 'Erro ao buscar perfil do usuario.' });
+      return res.status(500).json({ error: 'Erro ao buscar perfil do usuário.' });
     }
   }
 
@@ -30,14 +53,73 @@ class UserController {
     const { fotoPerfil } = req.body;
 
     if (!fotoPerfil || typeof fotoPerfil !== 'string' || !fotoPerfil.startsWith('data:image/')) {
-      return res.status(400).json({ error: 'Envie uma imagem valida em base64.' });
+      return res.status(400).json({ error: 'Envie uma imagem válida em base64.' });
     }
 
-    return res.status(501).json({ error: 'O banco de dados ainda nao possui suporte para foto de perfil.' });
+    try {
+      if (isDemoMode) {
+        const user = demoUsers.find((item) => String(item.id) === String(req.userId));
+
+        if (!user) {
+          return res.status(404).json({ error: 'Usuário não encontrado.' });
+        }
+
+        user.foto_perfil = fotoPerfil;
+
+        return res.json({
+          user: {
+            id: user.id,
+            nome: user.nome,
+            email: user.email,
+            cpf: user.cpf || null,
+            tipo: user.tipo,
+            foto_perfil: user.foto_perfil
+          }
+        });
+      }
+
+      const { data: user, error } = await supabase
+        .from('usuarios')
+        .update({ foto_perfil: fotoPerfil })
+        .eq('id', req.userId)
+        .select('id, nome, email, cpf, nivel_acesso, foto_perfil')
+        .single();
+
+      if (error || !user) {
+        console.error('Erro ao salvar foto:', error);
+        return res.status(500).json({ error: 'Não foi possível salvar a foto de perfil.' });
+      }
+
+      return res.json({
+        user: {
+          ...user,
+          tipo: obterTipoUsuario(user),
+          foto_perfil: user.foto_perfil || null
+        }
+      });
+    } catch (error) {
+      console.error('Erro ao atualizar foto:', error);
+      return res.status(500).json({ error: 'Erro ao atualizar a foto de perfil.' });
+    }
   }
 
   async listEvaluators(req, res) {
     try {
+      if (isDemoMode) {
+        const avaliadores = demoUsers
+          .filter((item) => item.nivel_acesso === 'usuario')
+          .map((item) => ({
+            id: item.id,
+            nome: item.nome,
+            cpf: item.cpf || null,
+            email: item.email,
+            tipo: item.tipo,
+            ativo: item.ativo ?? true
+          }));
+
+        return res.json({ avaliadores });
+      }
+
       const { data, error } = await supabase
         .from('usuarios')
         .select('id, nome, cpf, email, nivel_acesso, ativo')
@@ -45,7 +127,7 @@ class UserController {
         .order('nome');
 
       if (error) {
-        return res.status(500).json({ error: 'Nao foi possivel listar os avaliadores.' });
+        return res.status(500).json({ error: 'Não foi possível listar os avaliadores.' });
       }
 
       return res.json({ avaliadores: data || [] });
@@ -57,14 +139,24 @@ class UserController {
   async createPasswordResetLink(req, res) {
     try {
       const { id } = req.params;
-      const { data: user, error } = await supabase
-        .from('usuarios')
-        .select('id, nome, email, senha, nivel_acesso')
-        .eq('id', id)
-        .single();
+      let user = null;
 
-      if (error || !user || user.nivel_acesso !== 'usuario') {
-        return res.status(404).json({ error: 'Avaliador nao encontrado.' });
+      if (isDemoMode) {
+        user = demoUsers.find((item) => String(item.id) === String(id));
+      } else {
+        const { data, error } = await supabase
+          .from('usuarios')
+          .select('id, nome, email, senha, nivel_acesso')
+          .eq('id', id)
+          .single();
+
+        if (!error) {
+          user = data;
+        }
+      }
+
+      if (!user || user.nivel_acesso !== 'usuario') {
+        return res.status(404).json({ error: 'Avaliador não encontrado.' });
       }
 
       const senhaVersao = crypto.createHash('sha256').update(user.senha).digest('hex');
@@ -74,9 +166,14 @@ class UserController {
         { expiresIn: '30m' }
       );
 
-      return res.json({ token, expiresInMinutes: 30, avaliador: { id: user.id, nome: user.nome, email: user.email } });
+      return res.json({
+        token,
+        expiresInMinutes: 30,
+        avaliador: { id: user.id, nome: user.nome, email: user.email },
+        linkInicial: `${req.protocol}://${req.get('host')}/redefinir-senha?token=${encodeURIComponent(token)}`
+      });
     } catch {
-      return res.status(500).json({ error: 'Erro ao gerar link de redefinicao.' });
+      return res.status(500).json({ error: 'Erro ao gerar link de redefinição.' });
     }
   }
 
@@ -89,14 +186,26 @@ class UserController {
         return res.status(400).json({ error: 'Informe se o avaliador deve ficar ativo ou inativo.' });
       }
 
-      const { data: user, error: findError } = await supabase
+      if (isDemoMode) {
+        const avaliador = demoUsers.find((item) => String(item.id) === String(id));
+
+        if (!avaliador || avaliador.nivel_acesso !== 'usuario') {
+          return res.status(404).json({ error: 'Avaliador não encontrado.' });
+        }
+
+        avaliador.ativo = ativo;
+
+        return res.json({ avaliador });
+      }
+
+      const { data: existingUser, error: findError } = await supabase
         .from('usuarios')
         .select('id, nome, email, cpf, nivel_acesso, ativo')
         .eq('id', id)
         .single();
 
-      if (findError || !user || user.nivel_acesso !== 'usuario') {
-        return res.status(404).json({ error: 'Avaliador nao encontrado.' });
+      if (findError || !existingUser || existingUser.nivel_acesso !== 'usuario') {
+        return res.status(404).json({ error: 'Avaliador não encontrado.' });
       }
 
       const { data, error } = await supabase
@@ -107,7 +216,7 @@ class UserController {
         .single();
 
       if (error) {
-        return res.status(500).json({ error: 'Nao foi possivel atualizar o status do avaliador.' });
+        return res.status(500).json({ error: 'Não foi possível atualizar o status do avaliador.' });
       }
 
       return res.json({ avaliador: data });
@@ -120,41 +229,55 @@ class UserController {
     try {
       const { token, novaSenha } = req.body;
       if (!token || !novaSenha || String(novaSenha).length < 8) {
-        return res.status(400).json({ error: 'Informe um link valido e uma senha com pelo menos 8 caracteres.' });
+        return res.status(400).json({ error: 'Informe um link válido e uma senha com pelo menos 8 caracteres.' });
       }
 
       const payload = jwt.verify(token, jwtSecret);
       if (payload.purpose !== 'password-reset') {
-        return res.status(400).json({ error: 'Link de redefinicao invalido.' });
+        return res.status(400).json({ error: 'Link de redefinição inválido.' });
       }
 
-      const { data: user, error } = await supabase
-        .from('usuarios')
-        .select('id, senha')
-        .eq('id', payload.id)
-        .single();
+      let user = null;
+      if (isDemoMode) {
+        user = demoUsers.find((item) => String(item.id) === String(payload.id));
+      } else {
+        const { data, error } = await supabase
+          .from('usuarios')
+          .select('id, senha')
+          .eq('id', payload.id)
+          .single();
 
-      const senhaVersaoAtual = user
-        ? crypto.createHash('sha256').update(user.senha).digest('hex')
-        : '';
-
-      if (error || !user || senhaVersaoAtual !== payload.senhaVersao) {
-        return res.status(400).json({ error: 'Este link ja foi utilizado ou nao e mais valido.' });
+        if (!error) {
+          user = data;
+        }
       }
 
-      const senhaCriptografada = await bcrypt.hash(String(novaSenha), 8);
-      const { error: updateError } = await supabase
-        .from('usuarios')
-        .update({ senha: senhaCriptografada })
-        .eq('id', user.id);
+      if (!user) {
+        return res.status(400).json({ error: 'Este link já foi utilizado ou não é mais válido.' });
+      }
 
-      if (updateError) {
-        return res.status(500).json({ error: 'Nao foi possivel redefinir a senha.' });
+      const senhaVersaoAtual = crypto.createHash('sha256').update(user.senha).digest('hex');
+      if (senhaVersaoAtual !== payload.senhaVersao) {
+        return res.status(400).json({ error: 'Este link já foi utilizado ou não é mais válido.' });
+      }
+
+      if (isDemoMode) {
+        user.senha = String(novaSenha);
+      } else {
+        const senhaCriptografada = await bcrypt.hash(String(novaSenha), 8);
+        const { error: updateError } = await supabase
+          .from('usuarios')
+          .update({ senha: senhaCriptografada })
+          .eq('id', user.id);
+
+        if (updateError) {
+          return res.status(500).json({ error: 'Não foi possível redefinir a senha.' });
+        }
       }
 
       return res.json({ message: 'Senha redefinida com sucesso.' });
     } catch {
-      return res.status(400).json({ error: 'Link expirado ou invalido.' });
+      return res.status(400).json({ error: 'Link expirado ou inválido.' });
     }
   }
 }

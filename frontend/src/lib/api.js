@@ -1,4 +1,5 @@
 ﻿export async function apiFetch(path, options = {}) {
+    const apiBaseUrl = (import.meta.env.VITE_API_URL || 'http://localhost:3001').replace(/\/$/, '');
     const token = localStorage.getItem('sindicato_token');
     const headers = new Headers(options.headers || {});
 
@@ -10,7 +11,10 @@
         headers.set('Content-Type', 'application/json');
     }
 
-    const response = await fetch(path, {
+    const rota = path.startsWith('/api') || path.startsWith('/auth') ? path : `/api${path}`;
+    const url = /^https?:\/\//i.test(rota) ? rota : `${apiBaseUrl}${rota}`;
+
+    const response = await fetch(url, {
         ...options,
         headers
     });

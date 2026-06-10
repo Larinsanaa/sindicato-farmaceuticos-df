@@ -66,5 +66,20 @@ export default function RedefinirSenha() {
 }
 
 function CampoSenha({ label, value, onChange }) {
-    return <label><span className="mb-1.5 block text-xs font-bold uppercase text-slate-500">{label}</span><span className="relative block"><Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><input className="h-11 w-full rounded-md border border-slate-200 pl-10 pr-3 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100" type="password" value={value} onChange={(evento) => onChange(evento.target.value)} minLength="8" required /></span></label>;
+    return (
+        <label>
+            <span className="mb-1.5 block text-xs font-bold uppercase text-slate-500">{label}</span>
+            <span className="relative block">
+                <Lock className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <input
+                    className="h-11 w-full rounded-md border border-slate-200 pl-10 pr-3 text-sm outline-none focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
+                    type="password"
+                    value={value}
+                    onChange={(evento) => onChange(evento.target.value)}
+                    minLength="8"
+                    required
+                />
+            </span>
+        </label>
+    );
 }

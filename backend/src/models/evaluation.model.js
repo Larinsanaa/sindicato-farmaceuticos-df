@@ -1,9 +1,18 @@
-import { supabase } from '../config/config.js';
+import { isDemoMode, supabase } from '../config/config.js';
+import { demoEvaluations, demoResponses, demoUsers } from '../config/demoData.js';
 
 class EvaluationModel {
   async enrichWithEvaluators(evaluations) {
     if (!Array.isArray(evaluations) || evaluations.length === 0) {
       return evaluations;
+    }
+
+    if (isDemoMode) {
+      const usersById = new Map(demoUsers.map((user) => [String(user.id), user]));
+      return evaluations.map((evaluation) => ({
+        ...evaluation,
+        avaliador: usersById.get(String(evaluation.avaliador_id)) || null
+      }));
     }
 
     const evaluatorIds = [...new Set(evaluations.map((item) => item.avaliador_id).filter(Boolean))];
@@ -28,6 +37,16 @@ class EvaluationModel {
   }
 
   async createEvaluation(evaluation) {
+    if (isDemoMode) {
+      const created = {
+        id: Date.now(),
+        ...evaluation,
+        created_at: new Date().toISOString()
+      };
+      demoEvaluations.unshift(created);
+      return created;
+    }
+
     const { data, error } = await supabase
       .from('avaliacao')
       .insert([evaluation])
@@ -41,6 +60,15 @@ class EvaluationModel {
   }
 
   async createResponses(responses) {
+    if (isDemoMode) {
+      const created = responses.map((response, index) => ({
+        id: Date.now() + index,
+        ...response
+      }));
+      demoResponses.push(...created);
+      return created;
+    }
+
     const { data, error } = await supabase
       .from('resposta')
       .insert(responses)
@@ -54,6 +82,16 @@ class EvaluationModel {
   }
 
   async findById(id) {
+    if (isDemoMode) {
+      const data = demoEvaluations.find((item) => String(item.id) === String(id));
+      if (!data) {
+        return null;
+      }
+
+      const [evaluation] = await this.enrichWithEvaluators([data]);
+      return evaluation;
+    }
+
     const { data, error } = await supabase
       .from('avaliacao')
       .select('*')
@@ -73,6 +111,13 @@ class EvaluationModel {
   }
 
   async listByUser(userId, role) {
+    if (isDemoMode) {
+      const data = demoEvaluations
+        .filter((item) => role === 'presidente' || String(item.avaliador_id) === String(userId))
+        .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+      return this.enrichWithEvaluators(data);
+    }
+
     let query = supabase
       .from('avaliacao')
       .select('*')
@@ -92,6 +137,10 @@ class EvaluationModel {
   }
 
   async findResponsesByEvaluationId(avaliacaoId) {
+    if (isDemoMode) {
+      return demoResponses.filter((item) => String(item.avaliacao_id) === String(avaliacaoId));
+    }
+
     const { data, error } = await supabase
       .from('resposta')
       .select('*')

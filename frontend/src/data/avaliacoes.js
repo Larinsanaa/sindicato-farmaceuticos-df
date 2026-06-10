@@ -2,7 +2,7 @@ export const avaliacoes = [
     {
         id: '1',
         farmacia: 'Maisfarma',
-        cnpj: '12.345.678/0001-12',
+        cnpj: '12.345.678/0001-95',
         data: '2026-04-22',
         dataTexto: '22 de abril 2026',
         hora: '14:30',
@@ -22,7 +22,7 @@ export const avaliacoes = [
     {
         id: '2',
         farmacia: 'Maisfarma',
-        cnpj: '12.345.679/101-12',
+        cnpj: '12.345.678/0001-95',
         data: '2026-08-12',
         dataTexto: '12 de agosto 2026',
         hora: '09:15',
@@ -42,7 +42,7 @@ export const avaliacoes = [
     {
         id: '3',
         farmacia: 'Farmacia Central',
-        cnpj: '11.222.333/0001-44',
+        cnpj: '12.345.678/0001-95',
         data: '2026-06-10',
         dataTexto: '10 de junho 2026',
         hora: '16:05',
@@ -62,7 +62,7 @@ export const avaliacoes = [
     {
         id: '4',
         farmacia: 'Drogaria Norte',
-        cnpj: '22.333.444/0001-55',
+        cnpj: '12.345.678/0001-95',
         data: '2026-05-02',
         dataTexto: '02 de maio 2026',
         hora: '10:40',
@@ -82,7 +82,7 @@ export const avaliacoes = [
     {
         id: '5',
         farmacia: 'Drogaria Vida',
-        cnpj: '33.444.555/0001-66',
+        cnpj: '12.345.678/0001-95',
         data: '2026-03-18',
         dataTexto: '18 de março 2026',
         hora: '11:25',
@@ -102,7 +102,7 @@ export const avaliacoes = [
     {
         id: '6',
         farmacia: 'Farmacia Sao Lucas',
-        cnpj: '44.555.666/0001-77',
+        cnpj: '12.345.678/0001-95',
         data: '2026-02-27',
         dataTexto: '27 de fevereiro 2026',
         hora: '15:10',
@@ -122,7 +122,7 @@ export const avaliacoes = [
     {
         id: '7',
         farmacia: 'Drogaria Planalto',
-        cnpj: '55.666.777/0001-88',
+        cnpj: '12.345.678/0001-95',
         data: '2026-01-30',
         dataTexto: '30 de janeiro 2026',
         hora: '08:50',
@@ -142,7 +142,7 @@ export const avaliacoes = [
     {
         id: '8',
         farmacia: 'Farmacia Bem Estar',
-        cnpj: '66.777.888/0001-99',
+        cnpj: '12.345.678/0001-95',
         data: '2025-12-14',
         dataTexto: '14 de dezembro 2025',
         hora: '13:35',
@@ -162,7 +162,7 @@ export const avaliacoes = [
     {
         id: '9',
         farmacia: 'Drogaria Popular DF',
-        cnpj: '77.888.999/0001-10',
+        cnpj: '12.345.678/0001-95',
         data: '2025-11-09',
         dataTexto: '09 de novembro 2025',
         hora: '17:20',
@@ -182,7 +182,7 @@ export const avaliacoes = [
     {
         id: '10',
         farmacia: 'Farmacia Santa Maria',
-        cnpj: '88.999.000/0001-21',
+        cnpj: '12.345.678/0001-95',
         data: '2025-10-21',
         dataTexto: '21 de outubro 2025',
         hora: '09:45',

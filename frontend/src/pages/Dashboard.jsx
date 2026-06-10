@@ -1,12 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-    ArrowDownUp, Building2, CalendarDays, ChevronDown, ClipboardCheck, Download,
+    AlertTriangle, ArrowDownUp, Building2, CalendarDays, ChevronDown, ClipboardCheck, Download,
     Eye, FileSearch, Filter, Home, LogOut, PlusCircle, Search, Settings, Star, Store,
     UserPlus, UserRound, UsersRound, X
 } from 'lucide-react';
 import Cabecalho from '../components/Cabecalho.jsx';
-import { avaliacoes as avaliacoesMock } from '../data/avaliacoes.js';
 import { apiFetch, limparSessao, obterUsuarioLogado } from '../lib/api.js';
 import { normalizarDetalheAvaliacao, normalizarListaAvaliacoes } from '../lib/avaliacoes.js';
 import { exportarAvaliacaoPdf } from '../lib/exportarRelatorio.js';
@@ -44,20 +43,12 @@ export default function Dashboard() {
             try {
                 const resposta = await apiFetch('/api/avaliacoes');
                 const lista = Array.isArray(resposta?.avaliacoes) ? resposta.avaliacoes : [];
-                if (ativo) {
-                    const reais = normalizarListaAvaliacoes(lista);
-                    setAvaliacoes(administrador ? combinarComDemonstracao(reais) : reais);
-                }
+                if (ativo) setAvaliacoes(normalizarListaAvaliacoes(lista));
             } catch (error) {
                 if (!ativo) return;
 
-                if (administrador) {
-                    setAvaliacoes(normalizarListaAvaliacoes(avaliacoesMock, avaliacoesMock));
-                    setMensagem('API indisponível. Exibindo dados administrativos de demonstração.');
-                } else {
-                    setAvaliacoes([]);
-                    setMensagem('');
-                }
+                setAvaliacoes([]);
+                setMensagem('Não foi possível carregar as avaliações do backend. Verifique a API e a conexão.');
             } finally {
                 if (ativo) setCarregando(false);
             }
@@ -102,7 +93,8 @@ export default function Dashboard() {
             total: avaliacoes.length,
             farmacias: new Set(avaliacoes.map((item) => item.cnpj).filter(Boolean)).size,
             avaliadores: new Set(avaliacoes.map((item) => item.avaliador).filter(Boolean)).size,
-            media: notas.length ? (notas.reduce((soma, nota) => soma + nota, 0) / notas.length).toFixed(1).replace('.', ',') : '0,0'
+            media: notas.length ? (notas.reduce((soma, nota) => soma + nota, 0) / notas.length).toFixed(1).replace('.', ',') : '0,0',
+            atencao: avaliacoes.filter((item) => obterNota(item) < 3.5).length
         };
     }, [avaliacoes]);
 
@@ -177,38 +169,29 @@ export default function Dashboard() {
         <main className="min-h-dvh bg-slate-100 text-slate-900">
             <Cabecalho />
 
-            <div className="mx-auto grid max-w-[1440px] gap-5 px-4 py-5 pb-28 lg:grid-cols-[220px_minmax(0,1fr)] lg:px-7 lg:pb-7">
-                <section className="border-b border-slate-300 pb-5 lg:hidden">
-                    <p className="text-xs font-bold uppercase text-blue-700">{administrador ? 'Controle administrativo' : 'Minhas avaliações'}</p>
-                    <h1 className="mt-1 text-2xl font-extrabold text-blue-950">
-                        {administrador ? 'Visão geral das avaliações' : `Olá, ${usuario?.nome?.split(' ')[0] || 'avaliador'}`}
-                    </h1>
-                    <p className="mt-2 text-sm leading-6 text-slate-600">
-                        {administrador
-                            ? 'Consulte todas as avaliações, identifique pontos de atenção e exporte relatórios.'
-                            : 'Acompanhe somente as avaliações realizadas por você.'}
-                    </p>
-                </section>
-
-                <aside className="hidden h-fit rounded-lg border border-slate-200 bg-white p-3 shadow-sm lg:block">
-                    <div className="mb-3 hidden border-b border-slate-200 px-2 pb-4 pt-2 lg:block">
+            <div className="mx-auto grid max-w-[1440px] gap-5 px-4 py-5 pb-24 lg:grid-cols-[220px_minmax(0,1fr)] lg:px-7 lg:pb-7">
+                <aside className="h-fit rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
+                    <div className="mb-3 border-b border-slate-200 px-2 pb-4 pt-2">
                         <p className="text-xs font-bold uppercase text-slate-500">{administrador ? 'Administração' : 'Área do avaliador'}</p>
                         <p className="mt-1 truncate text-sm font-extrabold text-blue-950">{usuario?.nome || 'Usuário'}</p>
                         <p className="mt-1 truncate text-xs text-slate-500">{usuario?.email || ''}</p>
                     </div>
-                    <nav className="space-y-1" aria-label="Menu principal">
+                    <nav className="grid grid-cols-4 gap-1 lg:block lg:space-y-1" aria-label="Menu principal">
                         <MenuItem ativo icone={<Home />} texto="Visão geral" />
                         <MenuItem icone={<ClipboardCheck />} texto="Avaliações" onClick={() => navigate('/historico-avaliacoes')} />
-                        {administrador && <MenuItem icone={<UserPlus />} texto="Cadastrar avaliador" onClick={() => navigate('/cadastrar-avaliador')} />}
                         <MenuItem icone={<UserRound />} texto="Perfil" onClick={() => navigate('/perfil')} />
-                        {administrador && <MenuItem icone={<Settings />} texto="Config" onClick={() => navigate('/configuracao')} />}
+                        {administrador && <MenuItem icone={<UserPlus />} texto="Cadastrar avaliador" onClick={() => navigate('/cadastrar-avaliador')} />}
+                        <MenuItem
+                        icone={<Settings />}
+                        texto="Config"
+                        onClick={() => navigate('/configuracao')}/>
                         {!administrador && <MenuItem icone={<PlusCircle />} texto="Nova avaliação" onClick={() => navigate('/nova-avaliacao')} />}
                         <MenuItem className="hidden lg:flex" danger icone={<LogOut />} texto="Sair" onClick={sair} />
                     </nav>
                 </aside>
 
                 <div className="min-w-0 space-y-5">
-                    <section className="hidden border-b border-slate-300 pb-5 lg:block">
+                    <section className="border-b border-slate-300 pb-5">
                         <div className="flex flex-wrap items-end justify-between gap-4">
                             <div>
                                 <p className="text-xs font-bold uppercase text-blue-700">{administrador ? 'Controle administrativo' : 'Minhas avaliações'}</p>
@@ -229,11 +212,12 @@ export default function Dashboard() {
                         </div>
                     </section>
 
-                    <section className={`grid gap-3 ${administrador ? 'grid-cols-2 xl:grid-cols-4' : 'grid-cols-2 lg:grid-cols-3'}`}>
+                    <section className={`grid gap-3 ${administrador ? 'grid-cols-2 xl:grid-cols-5' : 'grid-cols-2 lg:grid-cols-4'}`}>
                         <Metrica icone={<ClipboardCheck />} titulo="Avaliações" valor={metricas.total} />
                         <Metrica icone={<Building2 />} titulo="Farmácias" valor={metricas.farmacias} />
                         {administrador && <Metrica icone={<UsersRound />} titulo="Avaliadores" valor={metricas.avaliadores} />}
                         <Metrica icone={<Star />} titulo="Média geral" valor={metricas.media} destaque />
+                        <Metrica icone={<AlertTriangle />} titulo="Pontos de atenção" valor={metricas.atencao} alerta />
                     </section>
 
                     <section className="rounded-lg border border-slate-200 bg-white shadow-sm">
@@ -401,16 +385,6 @@ function normalizarTexto(valor) {
     return String(valor || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 }
 
-function combinarComDemonstracao(reais) {
-    const idsReais = new Set(reais.map((item) => String(item.id)));
-    const demonstracao = normalizarListaAvaliacoes(
-        avaliacoesMock.map((item) => ({ ...item, id: `demo-${item.id}`, demonstracao: true })),
-        avaliacoesMock
-    ).filter((item) => !idsReais.has(String(item.id)));
-
-    return [...reais, ...demonstracao];
-}
-
 function obterNota(item) {
     return Number(String(item.notaGeral || 0).replace(',', '.')) || 0;
 }
@@ -429,9 +403,8 @@ function ordenarAvaliacoes(a, b, ordem) {
 
 function MenuItem({ icone, texto, ativo, danger, onClick, className = '' }) {
     return (
-        <button className={`flex h-12 w-full items-center justify-center rounded-md lg:h-auto lg:min-h-10 lg:flex-row lg:justify-start lg:gap-2 lg:px-3 lg:text-sm ${ativo ? 'bg-blue-700 text-white' : danger ? 'text-red-600 hover:bg-red-50' : 'text-slate-600 hover:bg-slate-100'} ${className}`} type="button" onClick={onClick} title={texto} aria-label={texto}>
-            <span className="[&_svg]:h-5 [&_svg]:w-5 lg:[&_svg]:h-4 lg:[&_svg]:w-4">{icone}</span>
-            <span className="hidden font-bold lg:inline">{texto}</span>
+        <button className={`flex min-h-14 w-full flex-col items-center justify-center gap-1 rounded-md px-2 text-[10px] font-bold lg:min-h-10 lg:flex-row lg:justify-start lg:gap-2 lg:text-sm ${ativo ? 'bg-blue-700 text-white' : danger ? 'text-red-600 hover:bg-red-50' : 'text-slate-600 hover:bg-slate-100'} ${className}`} type="button" onClick={onClick}>
+            <span className="[&_svg]:h-4 [&_svg]:w-4">{icone}</span><span>{texto}</span>
         </button>
     );
 }
@@ -488,7 +461,7 @@ function Nota({ valor }) {
 }
 
 function Classificacao({ avaliacao }) {
-    return <span className="mt-2 inline-flex items-center gap-1.5 rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-bold uppercase text-slate-600">{avaliacao.classificacao}{avaliacao.demonstracao && <span className="text-blue-700">· Demonstração</span>}</span>;
+    return <span className="mt-2 inline-block rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-bold uppercase text-slate-600">{avaliacao.classificacao}</span>;
 }
 
 function Acao({ icone, titulo, onClick }) {

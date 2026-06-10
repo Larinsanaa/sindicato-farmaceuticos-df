@@ -10,11 +10,13 @@ dotenv.config({ path: path.resolve(__dirname, '../../.env') });
 
 const supabaseUrl = process.env.SUPABASE_URL?.trim();
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() || process.env.SUPABASE_KEY?.trim();
+const demoModeRequested = process.env.USE_DEMO_MODE === 'true';
+const demoMode = demoModeRequested && (!supabaseUrl || !supabaseKey);
 
-if (!supabaseUrl || !supabaseKey) {
-  throw new Error(
-    'SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY (ou SUPABASE_KEY) precisam estar definidos em backend/.env'
-  );
+if (demoMode) {
+  console.warn('AVISO: USE_DEMO_MODE=true e SUPABASE não configurado. O backend vai usar o modo demonstração.');
+} else if (!supabaseUrl || !supabaseKey) {
+  console.warn('AVISO: SUPABASE_URL/SUPABASE_KEY não encontrados. Defina o ambiente real ou ative USE_DEMO_MODE=true apenas para testes.');
 }
 
 if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
@@ -31,4 +33,5 @@ if (!process.env.JWT_SECRET) {
   );
 }
 
-export const supabase = createClient(supabaseUrl, supabaseKey);
+export const isDemoMode = demoMode;
+export const supabase = demoMode ? null : createClient(supabaseUrl, supabaseKey);

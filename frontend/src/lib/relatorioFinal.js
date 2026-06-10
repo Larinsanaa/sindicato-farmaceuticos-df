@@ -46,7 +46,7 @@ export function criarRelatorioFinal({ secoes, respostas, notasSecao, observacoes
     return {
         id: `rel-${Date.now()}`,
         farmacia: farmacia?.nome || 'Mais Farma',
-        cnpj: farmacia?.cnpj || '05.123.456/0001-89',
+        cnpj: farmacia?.cnpj || '12.345.678/0001-95',
         endereco: farmacia?.endereco || 'R. das Farmácias, 123, Centro, Cidade',
         mediaGeral,
         mediaGeralTexto: formatarNota(mediaGeral),
@@ -80,7 +80,7 @@ export function criarRelatorioExemplo() {
     return {
         id: 'rel-exemplo',
         farmacia: 'Mais Farma',
-        cnpj: '05.123.456/0001-89',
+        cnpj: '12.345.678/0001-95',
         endereco: 'R. das Farmácias, 123, Centro, Cidade',
         mediaGeral: 3.5,
         mediaGeralTexto: '3,5',

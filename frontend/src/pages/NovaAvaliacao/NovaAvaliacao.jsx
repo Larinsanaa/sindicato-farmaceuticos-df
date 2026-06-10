@@ -6,7 +6,7 @@ import { obterUsuarioLogado } from '../../lib/api.js';
 
 const farmaciaEncontrada = {
     nome: 'Maisfarma',
-    cnpj: '12.345.678/0001-90',
+    cnpj: '12.345.678/0001-95',
     endereco: 'Riacho Fundo II - Etapa QN 5C Conjunto 2 Lote 02',
     cidade: 'Brasilia - DF',
     distancia: '1,2 km',
@@ -51,7 +51,9 @@ export default function NovaAvaliacao() {
             return;
         }
 
-        setFarmacia(farmaciaEncontrada);
+        const farmaciaSelecionada = { ...farmaciaEncontrada, nome: farmaciaEncontrada.nome, cnpj: farmaciaEncontrada.cnpj, endereco: farmaciaEncontrada.endereco, cidade: farmaciaEncontrada.cidade };
+        localStorage.setItem('sindicato_avaliacao_farmacia', JSON.stringify(farmaciaSelecionada));
+        setFarmacia(farmaciaSelecionada);
         setEtapa('localizacao');
         setAviso('');
     }
@@ -67,7 +69,13 @@ export default function NovaAvaliacao() {
         setCarregandoLocalizacao(true);
 
         navigator.geolocation.getCurrentPosition(
-            () => {
+            (posicao) => {
+                const localizacao = {
+                    localizacao_ativa: true,
+                    latitude: posicao.coords.latitude,
+                    longitude: posicao.coords.longitude
+                };
+                localStorage.setItem('sindicato_avaliacao_localizacao', JSON.stringify(localizacao));
                 setCarregandoLocalizacao(false);
                 navigate('/avaliacao');
             },
@@ -85,6 +93,11 @@ export default function NovaAvaliacao() {
 
     function usarLocalizacaoTeste() {
         setAviso('');
+        localStorage.setItem('sindicato_avaliacao_localizacao', JSON.stringify({
+            localizacao_ativa: true,
+            latitude: -15.7942,
+            longitude: -47.8822
+        }));
         navigate('/avaliacao');
     }
 

@@ -17,10 +17,7 @@ export default function Cabecalho({ textoBotao, onClick, menuAberto, setMenuAber
     function alternarMenu() {
         if (setMenuAberto) {
             setMenuAberto(!menuAberto);
-            return;
         }
-
-        navigate('/perfil');
     }
 
     return (
@@ -30,7 +27,7 @@ export default function Cabecalho({ textoBotao, onClick, menuAberto, setMenuAber
 
                 {usuario || !textoBotao ? (
                     <button
-                        className="flex items-center gap-0 rounded-full border border-slate-200 bg-white p-1.5 text-left shadow-sm transition hover:border-sky-300 hover:shadow-md focus:outline-none focus:ring-4 focus:ring-sky-100 sm:gap-3 sm:px-2"
+                        className="flex items-center gap-3 rounded-full border border-slate-200 bg-white px-2 py-1.5 text-left shadow-sm transition hover:border-sky-300 hover:shadow-md focus:outline-none focus:ring-4 focus:ring-sky-100"
                         type="button"
                         // 3. Mudança aqui: Agora o botão chama a função de abrir/fechar o menu ao clicar
                         onClick={alternarMenu} 
@@ -44,7 +41,7 @@ export default function Cabecalho({ textoBotao, onClick, menuAberto, setMenuAber
                                 iniciais
                             )}
                         </span>
-                        <span className="hidden min-w-0 pr-2 text-left sm:block">
+                        <span className="min-w-0 pr-2 text-left">
                             <span className="block truncate text-sm font-bold text-slate-900">{nomeUsuario}</span>
                             <span className="block truncate text-xs text-slate-500">{subtitulo}</span>
                         </span>

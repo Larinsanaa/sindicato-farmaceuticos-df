@@ -16,7 +16,7 @@ class EvaluationController {
 
       const { farmacia, cnpj, endereco, observacao } = req.body;
       const respostas = validation.respostas;
-      const resultado = processarRespostas(respostas, validation.notasSecao, validation.notaGeral);
+      const resultado = processarRespostas(respostas, req.body.nota_geral);
       const evaluationPayload = {
         avaliador_id: req.userId,
         farmacia: farmacia.trim(),

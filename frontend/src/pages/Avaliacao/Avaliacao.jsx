@@ -2,6 +2,7 @@
 import { useNavigate } from 'react-router-dom';
 import { Building2, Check, CreditCard, Package, Star, Store, UserSquare2, Users } from 'lucide-react';
 import Cabecalho from '../../components/Cabecalho.jsx';
+import { apiFetch } from '../../lib/api.js';
 import { criarRelatorioFinal, formatarNota, salvarRelatorioFinal } from '../../lib/relatorioFinal.js';
 
 export default function Avaliacao() {
@@ -32,8 +33,7 @@ export default function Avaliacao() {
     }
 
     function avaliarSecao(secaoIndex, valor) {
-        const nota = Math.max(1, Math.min(5, Number(valor)));
-        setNotasSecao((prev) => ({ ...prev, [secaoIndex]: nota }));
+        setNotasSecao((prev) => ({ ...prev, [secaoIndex]: valor }));
     }
 
     function alterarObservacao(secaoIndex, valor) {
@@ -66,27 +66,72 @@ export default function Avaliacao() {
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
-    function finalizarAvaliacao() {
+    async function finalizarAvaliacao() {
         const todasRespondidas = secoes.every((_, index) => secaoCompleta(index));
         if (!todasRespondidas) {
             alert('Responda todas as perguntas e selecione as notas em estrelas antes de finalizar.');
             return;
         }
 
-        const relatorio = criarRelatorioFinal({
-            secoes,
-            respostas,
-            notasSecao,
-            observacoesSecoes,
-            farmacia: {
-                nome: 'Mais Farma',
-                cnpj: '05.123.456/0001-89',
-                endereco: 'R. das Farmácias, 123, Centro, Cidade'
-            }
-        });
+        try {
+            const farmaciaSalva = lerJson('sindicato_avaliacao_farmacia');
+            const localizacaoSalva = lerJson('sindicato_avaliacao_localizacao');
+            const respostasParaSalvar = Object.entries(respostas)
+                .map(([chave, valor]) => {
+                    const [secaoIndex, perguntaIndex] = chave.split('-').map(Number);
+                    if (!Number.isInteger(secaoIndex) || !Number.isInteger(perguntaIndex)) {
+                        return null;
+                    }
 
-        salvarRelatorioFinal(relatorio);
-        navigate('/relatorio-final-avaliacao');
+                    const secao = secoes[secaoIndex];
+                    if (!secao) {
+                        return null;
+                    }
+
+                    return {
+                        secao: secao.titulo,
+                        pergunta: secao.perguntas[perguntaIndex],
+                        valor: Number(valor)
+                    };
+                })
+                .filter(Boolean);
+
+            const payload = {
+                farmacia: farmaciaSalva?.nome || 'Mais Farma',
+                cnpj: farmaciaSalva?.cnpj || '12.345.678/0001-95',
+                endereco: farmaciaSalva?.endereco || 'R. das Farmácias, 123, Centro, Cidade',
+                observacao: Object.values(observacoesSecoes).filter(Boolean).join(' '),
+                respostas: respostasParaSalvar,
+                notasSecao,
+                nota_geral: mediaGeral(),
+                localizacao_ativa: Boolean(localizacaoSalva?.latitude !== undefined && localizacaoSalva?.longitude !== undefined),
+                latitude: localizacaoSalva?.latitude ?? -15.7942,
+                longitude: localizacaoSalva?.longitude ?? -47.8822
+            };
+
+            const resposta = await apiFetch('/api/avaliacoes', {
+                method: 'POST',
+                body: JSON.stringify(payload)
+            });
+
+            const relatorio = criarRelatorioFinal({
+                secoes,
+                respostas,
+                notasSecao,
+                observacoesSecoes,
+                farmacia: {
+                    nome: payload.farmacia,
+                    cnpj: payload.cnpj,
+                    endereco: payload.endereco
+                }
+            });
+
+            relatorio.id = String(resposta?.avaliacao?.id || relatorio.id);
+            salvarRelatorioFinal(relatorio);
+            navigate('/relatorio-final-avaliacao');
+        } catch (error) {
+            alert(error.message || 'Não foi possível salvar a avaliação no banco de dados.');
+        }
     }
 
     const totalPerguntas = secoes.reduce((total, secao) => total + secao.perguntas.length, 0);
@@ -271,10 +316,10 @@ export default function Avaliacao() {
 
                             <article className="rounded-lg border border-slate-200 bg-white p-4 sm:p-5">
                                 <label className="block">
-                                    <span className="mb-2 block text-sm font-bold text-slate-700">Observação da seção <span className="font-medium text-slate-400">(opcional)</span></span>
+                                    <span className="mb-2 block text-sm font-bold text-slate-700">Observação da seção</span>
                                     <textarea
                                         className="min-h-28 w-full rounded-md border border-slate-200 bg-white p-3 text-sm outline-none focus:border-sky-500 focus:ring-4 focus:ring-sky-100"
-                                        placeholder="Deixe aqui uma observação geral sobre esta seção, se necessário..."
+                                        placeholder="Deixe aqui uma observação geral sobre esta seção..."
                                         value={observacoesSecoes[secaoAtual] || ''}
                                         onChange={(evento) => alterarObservacao(secaoAtual, evento.target.value)}
                                     />
@@ -311,4 +356,13 @@ function InfoCard({ titulo, valor, destaque = false }) {
             <p className="mt-1 text-lg font-extrabold text-blue-950">{valor}</p>
         </div>
     );
+}
+
+function lerJson(chave) {
+    try {
+        const valor = localStorage.getItem(chave);
+        return valor ? JSON.parse(valor) : null;
+    } catch {
+        return null;
+    }
 }
