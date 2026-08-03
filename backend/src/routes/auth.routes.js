@@ -22,6 +22,9 @@ routes.get('/dashboard', authMiddleware, (req, res) => {
 
 routes.get('/meu-perfil', authMiddleware, checkRole('presidente', 'avaliador'), UserController.getProfile);
 routes.patch('/meu-perfil/foto', authMiddleware, checkRole('presidente', 'avaliador'), UserController.updateAvatar);
+routes.patch('/meu-perfil/senha', authMiddleware, checkRole('presidente', 'avaliador'), UserController.changePassword);
+routes.patch('/meu-perfil/email', authMiddleware, checkRole('presidente', 'avaliador'), UserController.changeEmail);
+routes.patch('/meu-perfil/nome', authMiddleware, checkRole('presidente', 'avaliador'), UserController.changeName);
 
 routes.get('/painel-presidente', authMiddleware, checkRole('presidente'), (req, res) => {
   return res.json({ message: 'Bem-vindo ao painel do presidente!' });

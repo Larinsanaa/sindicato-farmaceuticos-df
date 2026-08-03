@@ -1,0 +1,13 @@
+{
+  "name": "sindicato-farmaceuticos-df",
+  "private": true,
+  "type": "module",
+  "description": "Sistema de avaliação de farmácias do Sincofarma-DF (frontend Vite + API Express serverless na Vercel)",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.105.3",
+    "bcryptjs": "^3.0.3",
+    "dotenv": "^16.6.1",
+    "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.3"
+  }
+}

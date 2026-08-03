@@ -167,11 +167,12 @@ export default function RelatorioAvaliacao() {
 
 function Criterio({ criterio }) {
     return (
-        <div className="grid grid-cols-[92px_1fr] items-center gap-3">
+        <div className="grid grid-cols-[92px_1fr_44px] items-center gap-3">
             <span className="text-xs font-semibold text-slate-600">{criterio.nome}</span>
             <div className="h-2.5 rounded-full bg-sky-100">
                 <div className="h-2.5 rounded-full bg-blue-700" style={{ width: `${criterio.valor}%` }} />
             </div>
+            <span className="text-right text-xs font-extrabold text-blue-950">{criterio.notaTexto ? `${criterio.notaTexto}/5` : `${criterio.valor}%`}</span>
         </div>
     );
 }

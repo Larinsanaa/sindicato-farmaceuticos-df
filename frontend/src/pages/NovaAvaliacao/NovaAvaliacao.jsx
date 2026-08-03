@@ -2,16 +2,8 @@
 import { useNavigate } from 'react-router-dom';
 import { AlertTriangle, ArrowLeft, Loader2, LocateFixed, MapPin, Search } from 'lucide-react';
 import Cabecalho from '../../components/Cabecalho.jsx';
-import { obterUsuarioLogado } from '../../lib/api.js';
-
-const farmaciaEncontrada = {
-    nome: 'Maisfarma',
-    cnpj: '12.345.678/0001-90',
-    endereco: 'Riacho Fundo II - Etapa QN 5C Conjunto 2 Lote 02',
-    cidade: 'Brasilia - DF',
-    distancia: '1,2 km',
-    nota: '4,8'
-};
+import { apiFetch, obterUsuarioLogado } from '../../lib/api.js';
+import { salvarFarmaciaSelecionada } from '../../lib/farmaciaSelecionada.js';
 
 export default function NovaAvaliacao() {
     const navigate = useNavigate();
@@ -20,6 +12,7 @@ export default function NovaAvaliacao() {
     const [etapa, setEtapa] = useState('busca');
     const [cnpj, setCnpj] = useState('');
     const [farmacia, setFarmacia] = useState(null);
+    const [carregandoBusca, setCarregandoBusca] = useState(false);
     const [carregandoLocalizacao, setCarregandoLocalizacao] = useState(false);
     const [aviso, setAviso] = useState('');
 
@@ -38,7 +31,7 @@ export default function NovaAvaliacao() {
         );
     }
 
-    function pesquisarFarmacia(evento) {
+    async function pesquisarFarmacia(evento) {
         evento.preventDefault();
 
         if (!cnpjCompleto) {
@@ -51,9 +44,27 @@ export default function NovaAvaliacao() {
             return;
         }
 
-        setFarmacia(farmaciaEncontrada);
-        setEtapa('localizacao');
+        setCarregandoBusca(true);
         setAviso('');
+
+        try {
+            const farmaciaEncontrada = await buscarCnpj(cnpj);
+
+            if (farmaciaEncontrada.uf !== 'DF') {
+                setAviso('Este CNPJ não pertence ao Distrito Federal.');
+                setFarmacia(null);
+                return;
+            }
+
+            setFarmacia(farmaciaEncontrada);
+            salvarFarmaciaSelecionada(farmaciaEncontrada);
+            setEtapa('localizacao');
+        } catch (error) {
+            setAviso(error.message);
+            setFarmacia(null);
+        } finally {
+            setCarregandoBusca(false);
+        }
     }
 
     function solicitarLocalizacao() {
@@ -67,8 +78,29 @@ export default function NovaAvaliacao() {
         setCarregandoLocalizacao(true);
 
         navigator.geolocation.getCurrentPosition(
-            () => {
+            (posicao) => {
                 setCarregandoLocalizacao(false);
+
+                const posicaoAvaliador = {
+                    latitude: posicao.coords.latitude,
+                    longitude: posicao.coords.longitude
+                };
+
+                // Só deixa iniciar a avaliação se o avaliador estiver de fato
+                // perto da farmácia (quando temos as coordenadas dela).
+                if (farmacia?.coordenadas) {
+                    const distancia = distanciaEmMetros(posicaoAvaliador, farmacia.coordenadas);
+
+                    if (distancia > RAIO_MAXIMO_METROS) {
+                        setAviso(`Você está a ${formatarDistancia(distancia)} da farmácia. É preciso estar a menos de ${formatarDistancia(RAIO_MAXIMO_METROS)} do local para iniciar a avaliação.`);
+                        return;
+                    }
+                }
+
+                salvarFarmaciaSelecionada({
+                    ...farmacia,
+                    localizacao: posicaoAvaliador
+                });
                 navigate('/avaliacao');
             },
             () => {
@@ -85,6 +117,15 @@ export default function NovaAvaliacao() {
 
     function usarLocalizacaoTeste() {
         setAviso('');
+        // Simula o avaliador exatamente no endereço da farmácia (ou no centro
+        // de Brasília se a geocodificação não encontrou coordenadas).
+        salvarFarmaciaSelecionada({
+            ...farmacia,
+            localizacao: farmacia?.coordenadas || {
+                latitude: -15.793889,
+                longitude: -47.882778
+            }
+        });
         navigate('/avaliacao');
     }
 
@@ -130,8 +171,9 @@ export default function NovaAvaliacao() {
                                 </div>
                             </label>
 
-                            <button className="h-12 w-full rounded-md bg-blue-700 text-sm font-extrabold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-60" type="submit" disabled={!cnpjCompleto}>
-                                Buscar farmácia
+                            <button className="flex h-12 w-full items-center justify-center gap-2 rounded-md bg-blue-700 text-sm font-extrabold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-60" type="submit" disabled={!cnpjCompleto || carregandoBusca}>
+                                {carregandoBusca && <Loader2 className="h-4 w-4 animate-spin" />}
+                                {carregandoBusca ? 'Buscando...' : 'Buscar farmácia'}
                             </button>
                         </form>
                     </section>
@@ -139,7 +181,7 @@ export default function NovaAvaliacao() {
 
                 {etapa === 'localizacao' && (
                     <section className="overflow-hidden rounded-lg border border-slate-200 bg-white shadow-sm">
-                        <MapaIlustrado />
+                        <MapaFarmacia farmacia={farmacia} />
 
                         <div className="p-5">
                             <h1 className="text-2xl font-extrabold text-blue-950">Validar localização</h1>
@@ -171,16 +213,51 @@ function FarmaciaResumo({ farmacia }) {
 
     return (
         <div className="mt-5 rounded-lg border border-slate-200 bg-slate-50 p-4">
-            <div className="flex items-start gap-3">
+            <div className="grid grid-cols-[40px_minmax(0,1fr)] gap-3">
                 <div className="grid h-10 w-10 shrink-0 place-items-center rounded-md bg-orange-100 text-orange-700">
                     <MapPin className="h-5 w-5" />
                 </div>
-                <div>
-                    <h2 className="text-base font-extrabold text-slate-900">{farmacia.nome}</h2>
-                    <p className="mt-1 text-xs font-semibold text-slate-500">{farmacia.cnpj}</p>
+                <div className="min-w-0">
+                    <h2 className="truncate text-base font-extrabold leading-5 text-slate-900" title={farmacia.nome}>{farmacia.nome}</h2>
+                    {farmacia.razaoSocial && farmacia.razaoSocial !== farmacia.nome && (
+                        <p className="mt-1 truncate text-xs font-semibold leading-4 text-slate-500" title={farmacia.razaoSocial}>{farmacia.razaoSocial}</p>
+                    )}
+                    <p className="mt-1 text-xs font-semibold leading-4 text-slate-500">CNPJ {farmacia.cnpj}</p>
+                    {farmacia.situacao && (
+                        <span className={`mt-2 inline-block rounded-full px-2.5 py-0.5 text-[11px] font-bold uppercase ${farmacia.situacao === 'ATIVA' ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
+                            {farmacia.situacao}
+                        </span>
+                    )}
                     <p className="mt-2 text-sm leading-5 text-slate-600">{farmacia.endereco}</p>
-                    <p className="text-sm text-slate-600">{farmacia.cidade}</p>
+                    <p className="mt-1 text-sm leading-5 text-slate-600">
+                        {farmacia.cidade}
+                        {farmacia.cep && ` · CEP ${farmacia.cep}`}
+                    </p>
+                    {farmacia.telefone && <p className="mt-1 text-sm leading-5 text-slate-600">Telefone {farmacia.telefone}</p>}
                 </div>
+            </div>
+        </div>
+    );
+}
+
+function MapaFarmacia({ farmacia }) {
+    const coordenadas = farmacia?.coordenadas;
+
+    if (!coordenadas) {
+        return <MapaIlustrado />;
+    }
+
+    return (
+        <div className="relative h-64 overflow-hidden bg-sky-100">
+            <iframe
+                className="h-full w-full border-0"
+                title={`Mapa da farmácia ${farmacia.nome}`}
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+                src={`https://maps.google.com/maps?q=${coordenadas.latitude},${coordenadas.longitude}&z=17&hl=pt-BR&output=embed`}
+            />
+            <div className="pointer-events-none absolute bottom-4 left-4 rounded-md bg-white/95 px-3 py-2 text-xs font-bold text-blue-950 shadow-sm">
+                Localização da farmácia
             </div>
         </div>
     );
@@ -203,8 +280,75 @@ function MapaIlustrado() {
     );
 }
 
+const RAIO_MAXIMO_METROS = 500;
+
+function distanciaEmMetros(pontoA, pontoB) {
+    const RAIO_TERRA_METROS = 6371000;
+    const paraRadianos = (grau) => (grau * Math.PI) / 180;
+
+    const deltaLatitude = paraRadianos(pontoB.latitude - pontoA.latitude);
+    const deltaLongitude = paraRadianos(pontoB.longitude - pontoA.longitude);
+
+    const a = Math.sin(deltaLatitude / 2) ** 2
+        + Math.cos(paraRadianos(pontoA.latitude)) * Math.cos(paraRadianos(pontoB.latitude)) * Math.sin(deltaLongitude / 2) ** 2;
+
+    return 2 * RAIO_TERRA_METROS * Math.asin(Math.sqrt(a));
+}
+
+function formatarDistancia(metros) {
+    if (metros >= 1000) {
+        return `${(metros / 1000).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} km`;
+    }
+    return `${Math.round(metros)} m`;
+}
+
 function somenteNumeros(valor) {
-    return valor.replace(/\D/g, '');
+    return String(valor || '').replace(/\D/g, '');
+}
+
+async function buscarCnpj(valor) {
+    const cnpj = somenteNumeros(valor);
+    // Consulta via backend (que repassa pra BrasilAPI) pra evitar bloqueios
+    // de CORS/extensões que acontecem chamando a BrasilAPI direto do navegador.
+    const dados = await apiFetch(`/api/cnpj/${cnpj}`);
+    return normalizarFarmacia(dados);
+}
+
+function normalizarFarmacia(dados) {
+    const nome = dados.nome_fantasia || dados.razao_social || 'Farmácia sem nome informado';
+    const endereco = [
+        dados.descricao_tipo_de_logradouro,
+        dados.logradouro,
+        dados.numero,
+        dados.complemento,
+        dados.bairro
+    ].filter(Boolean).join(', ');
+    const cidade = [dados.municipio, dados.uf].filter(Boolean).join(' - ');
+
+    return {
+        nome,
+        razaoSocial: dados.razao_social || '',
+        cnpj: formatarCnpj(dados.cnpj || ''),
+        endereco: endereco || 'Endereço não informado',
+        cidade: cidade || 'Cidade não informada',
+        municipio: dados.municipio || '',
+        uf: dados.uf || '',
+        cep: formatarCep(dados.cep || ''),
+        telefone: formatarTelefone(dados.ddd_telefone_1 || ''),
+        situacao: dados.descricao_situacao_cadastral || '',
+        coordenadas: dados.localizacao || null
+    };
+}
+
+function formatarCep(valor) {
+    const numeros = somenteNumeros(valor).slice(0, 8);
+    return numeros.replace(/^(\d{5})(\d)/, '$1-$2');
+}
+
+function formatarTelefone(valor) {
+    const numeros = somenteNumeros(valor).slice(0, 11);
+    if (numeros.length < 10) return '';
+    return numeros.replace(/^(\d{2})(\d{4,5})(\d{4})$/, '($1) $2-$3');
 }
 
 function formatarCnpj(valor) {

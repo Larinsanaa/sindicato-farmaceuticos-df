@@ -28,6 +28,7 @@ export default function Dashboard() {
     const administrador = usuario?.tipo === 'presidente';
     const [busca, setBusca] = useState('');
     const [filtros, setFiltros] = useState(filtrosIniciais);
+    const [filtroAtencao, setFiltroAtencao] = useState(false);
     const [avaliacoes, setAvaliacoes] = useState([]);
     const [carregando, setCarregando] = useState(true);
     const [mensagem, setMensagem] = useState('');
@@ -84,6 +85,7 @@ export default function Dashboard() {
             ].join(' '));
 
             return (!termo || textoGlobal.includes(termo))
+                && (!filtroAtencao || ehPontoAtencao(item))
                 && (!filtros.cidade || item.cidade === filtros.cidade)
                 && (!filtros.avaliador || item.avaliador === filtros.avaliador)
                 && (!filtros.classificacao || item.classificacao === filtros.classificacao)
@@ -94,21 +96,98 @@ export default function Dashboard() {
         });
 
         return [...lista].sort((a, b) => ordenarAvaliacoes(a, b, filtros.ordenacao));
-    }, [avaliacoes, busca, filtros]);
+    }, [avaliacoes, busca, filtros, filtroAtencao]);
 
     const metricas = useMemo(() => {
         const notas = avaliacoes.map(obterNota).filter((nota) => nota > 0);
+        const mesAtual = new Date().toISOString().slice(0, 7);
+        const maisRecente = avaliacoes.reduce(
+            (atual, item) => (item.data && (!atual || item.data > atual.data) ? item : atual),
+            null
+        );
+
         return {
             total: avaliacoes.length,
+            esteMes: avaliacoes.filter((item) => (item.data || '').startsWith(mesAtual)).length,
+            ultima: maisRecente?.data ? maisRecente.data.split('-').reverse().join('/') : '—',
             farmacias: new Set(avaliacoes.map((item) => item.cnpj).filter(Boolean)).size,
             avaliadores: new Set(avaliacoes.map((item) => item.avaliador).filter(Boolean)).size,
             media: notas.length ? (notas.reduce((soma, nota) => soma + nota, 0) / notas.length).toFixed(1).replace('.', ',') : '0,0'
         };
     }, [avaliacoes]);
 
+    // Análises agregadas do painel administrativo.
+    const analises = useMemo(() => {
+        const comNota = avaliacoes.filter((item) => obterNota(item) > 0);
+
+        const distribuicao = [
+            { chave: 'Otimo', rotulo: 'Ótimo', cor: 'bg-emerald-500' },
+            { chave: 'Bom', rotulo: 'Bom', cor: 'bg-sky-500' },
+            { chave: 'Regular', rotulo: 'Regular', cor: 'bg-amber-500' },
+            { chave: 'Critico', rotulo: 'Crítico', cor: 'bg-red-500' }
+        ].map((item) => ({
+            ...item,
+            quantidade: avaliacoes.filter((avaliacao) => normalizarTexto(avaliacao.classificacao) === normalizarTexto(item.chave)).length
+        }));
+
+        const pontosAtencao = avaliacoes.filter(ehPontoAtencao).length;
+
+        const porFarmacia = new Map();
+        comNota.forEach((item) => {
+            const chave = item.cnpj || item.farmacia;
+            const atual = porFarmacia.get(chave) || { farmacia: item.farmacia, cnpj: item.cnpj, notas: [] };
+            atual.notas.push(obterNota(item));
+            porFarmacia.set(chave, atual);
+        });
+        const ranking = [...porFarmacia.values()]
+            .map((item) => ({
+                ...item,
+                quantidade: item.notas.length,
+                media: item.notas.reduce((soma, nota) => soma + nota, 0) / item.notas.length
+            }))
+            .sort((a, b) => b.media - a.media);
+        const melhores = ranking.slice(0, 5);
+        const piores = ranking.slice(5).slice(-5).reverse();
+
+        const porMes = new Map();
+        avaliacoes.forEach((item) => {
+            const mes = (item.data || '').slice(0, 7);
+            if (!mes) return;
+            const atual = porMes.get(mes) || { quantidade: 0, notas: [] };
+            atual.quantidade += 1;
+            const nota = obterNota(item);
+            if (nota > 0) atual.notas.push(nota);
+            porMes.set(mes, atual);
+        });
+        const evolucao = [...porMes.entries()]
+            .sort(([mesA], [mesB]) => mesA.localeCompare(mesB))
+            .slice(-6)
+            .map(([mes, dados]) => ({
+                mes,
+                rotulo: formatarMesCurto(mes),
+                quantidade: dados.quantidade,
+                media: dados.notas.length ? dados.notas.reduce((soma, nota) => soma + nota, 0) / dados.notas.length : 0
+            }));
+
+        const mesAtual = new Date().toISOString().slice(0, 7);
+        const porAvaliador = new Map();
+        avaliacoes.forEach((item) => {
+            const nome = item.avaliador || 'Avaliador';
+            const atual = porAvaliador.get(nome) || { nome, total: 0, esteMes: 0 };
+            atual.total += 1;
+            if ((item.data || '').startsWith(mesAtual)) atual.esteMes += 1;
+            porAvaliador.set(nome, atual);
+        });
+        const produtividade = [...porAvaliador.values()]
+            .sort((a, b) => b.esteMes - a.esteMes || b.total - a.total)
+            .slice(0, 6);
+
+        return { distribuicao, pontosAtencao, melhores, piores, evolucao, produtividade };
+    }, [avaliacoes]);
+
     const totalFiltrosAtivos = useMemo(
-        () => Object.entries(filtros).filter(([campo, valor]) => campo !== 'ordenacao' && Boolean(valor)).length,
-        [filtros]
+        () => Object.entries(filtros).filter(([campo, valor]) => campo !== 'ordenacao' && Boolean(valor)).length + (filtroAtencao ? 1 : 0),
+        [filtros, filtroAtencao]
     );
 
     const sugestoesBusca = useMemo(() => {
@@ -141,6 +220,7 @@ export default function Dashboard() {
     function limparFiltros() {
         setBusca('');
         setFiltros(filtrosIniciais);
+        setFiltroAtencao(false);
     }
 
     async function exportar(evento, avaliacao) {
@@ -199,7 +279,7 @@ export default function Dashboard() {
                     <nav className="space-y-1" aria-label="Menu principal">
                         <MenuItem ativo icone={<Home />} texto="Visão geral" />
                         <MenuItem icone={<ClipboardCheck />} texto="Avaliações" onClick={() => navigate('/historico-avaliacoes')} />
-                        {administrador && <MenuItem icone={<UserPlus />} texto="Cadastrar avaliador" onClick={() => navigate('/cadastrar-avaliador')} />}
+                        {administrador && <MenuItem icone={<UserPlus />} texto="Novo avaliador" onClick={() => navigate('/cadastrar-avaliador')} />}
                         <MenuItem icone={<UserRound />} texto="Perfil" onClick={() => navigate('/perfil')} />
                         {administrador && <MenuItem icone={<Settings />} texto="Config" onClick={() => navigate('/configuracao')} />}
                         {!administrador && <MenuItem icone={<PlusCircle />} texto="Nova avaliação" onClick={() => navigate('/nova-avaliacao')} />}
@@ -229,12 +309,39 @@ export default function Dashboard() {
                         </div>
                     </section>
 
-                    <section className={`grid gap-3 ${administrador ? 'grid-cols-2 xl:grid-cols-4' : 'grid-cols-2 lg:grid-cols-3'}`}>
-                        <Metrica icone={<ClipboardCheck />} titulo="Avaliações" valor={metricas.total} />
-                        <Metrica icone={<Building2 />} titulo="Farmácias" valor={metricas.farmacias} />
-                        {administrador && <Metrica icone={<UsersRound />} titulo="Avaliadores" valor={metricas.avaliadores} />}
-                        <Metrica icone={<Star />} titulo="Média geral" valor={metricas.media} destaque />
+                    <section className={`grid grid-cols-2 gap-3 ${administrador ? 'xl:grid-cols-5' : 'xl:grid-cols-4'}`}>
+                        <Metrica icone={<ClipboardCheck />} titulo="Avaliações" valor={metricas.total} dica="Total de avaliações registradas no sistema." />
+                        {administrador ? (
+                            <>
+                                <Metrica icone={<Building2 />} titulo="Farmácias" valor={metricas.farmacias} dica="Quantidade de farmácias diferentes que já receberam avaliação." />
+                                <Metrica icone={<UsersRound />} titulo="Avaliadores" valor={metricas.avaliadores} dica="Avaliadores que já realizaram pelo menos uma avaliação." />
+                                <Metrica
+                                    icone={<Filter />}
+                                    titulo="Pontos de atenção"
+                                    valor={analises.pontosAtencao}
+                                    alerta
+                                    ativo={filtroAtencao}
+                                    onClick={() => setFiltroAtencao((atual) => !atual)}
+                                    dica="Avaliações com classificação Crítico ou Regular. Clique para filtrar a lista abaixo."
+                                />
+                            </>
+                        ) : (
+                            <>
+                                <Metrica icone={<CalendarDays />} titulo="Este mês" valor={metricas.esteMes} dica="Avaliações registradas no mês atual." />
+                                <Metrica icone={<FileSearch />} titulo="Última avaliação" valor={metricas.ultima} dica="Data da avaliação mais recente." />
+                            </>
+                        )}
+                        <Metrica icone={<Star />} titulo="Média geral" valor={metricas.media} destaque dica="Média das notas de todas as avaliações, na escala de 1 a 5." />
                     </section>
+
+                    {administrador && metricas.total > 0 && (
+                        <section className="grid gap-3 xl:grid-cols-2">
+                            <PainelDistribuicao distribuicao={analises.distribuicao} total={metricas.total} />
+                            <PainelEvolucao evolucao={analises.evolucao} />
+                            <PainelRanking melhores={analises.melhores} piores={analises.piores} />
+                            <PainelProdutividade produtividade={analises.produtividade} />
+                        </section>
+                    )}
 
                     <section className="rounded-lg border border-slate-200 bg-white shadow-sm">
                         <div className="border-b border-slate-200 p-4 sm:p-5">
@@ -415,6 +522,23 @@ function obterNota(item) {
     return Number(String(item.notaGeral || 0).replace(',', '.')) || 0;
 }
 
+function ehPontoAtencao(item) {
+    const classificacao = normalizarTexto(item.classificacao);
+    return classificacao === 'critico' || classificacao === 'regular';
+}
+
+const MESES_CURTOS = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+
+function formatarMesCurto(mesIso) {
+    const [ano, mes] = String(mesIso).split('-');
+    const indice = Number(mes) - 1;
+    return MESES_CURTOS[indice] ? `${MESES_CURTOS[indice]}/${ano.slice(2)}` : mesIso;
+}
+
+function formatarMedia(valor) {
+    return Number(valor || 0).toFixed(1).replace('.', ',');
+}
+
 function unicos(lista) {
     return [...new Set(lista.filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
 }
@@ -429,20 +553,173 @@ function ordenarAvaliacoes(a, b, ordem) {
 
 function MenuItem({ icone, texto, ativo, danger, onClick, className = '' }) {
     return (
-        <button className={`flex h-12 w-full items-center justify-center rounded-md lg:h-auto lg:min-h-10 lg:flex-row lg:justify-start lg:gap-2 lg:px-3 lg:text-sm ${ativo ? 'bg-blue-700 text-white' : danger ? 'text-red-600 hover:bg-red-50' : 'text-slate-600 hover:bg-slate-100'} ${className}`} type="button" onClick={onClick} title={texto} aria-label={texto}>
-            <span className="[&_svg]:h-5 [&_svg]:w-5 lg:[&_svg]:h-4 lg:[&_svg]:w-4">{icone}</span>
-            <span className="hidden font-bold lg:inline">{texto}</span>
+        <button className={`flex h-12 w-full items-center justify-center rounded-md lg:h-auto lg:min-h-10 lg:flex-row lg:justify-start lg:gap-2 lg:px-3 lg:py-2 lg:text-sm ${ativo ? 'bg-blue-700 text-white' : danger ? 'text-red-600 hover:bg-red-50' : 'text-slate-600 hover:bg-slate-100'} ${className}`} type="button" onClick={onClick} title={texto} aria-label={texto}>
+            <span className="shrink-0 [&_svg]:h-5 [&_svg]:w-5 lg:[&_svg]:h-4 lg:[&_svg]:w-4">{icone}</span>
+            <span className="hidden whitespace-nowrap text-left font-bold lg:inline">{texto}</span>
         </button>
     );
 }
 
-function Metrica({ icone, titulo, valor, destaque, alerta }) {
+function Metrica({ icone, titulo, valor, destaque, alerta, ativo, onClick, dica }) {
+    const Componente = onClick ? 'button' : 'div';
+
     return (
-        <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+        <Componente
+            className={`group relative rounded-lg border p-4 shadow-sm ${ativo ? 'border-amber-400 bg-amber-50 ring-2 ring-amber-200' : 'border-slate-200 bg-white'} ${onClick ? 'cursor-pointer text-left transition hover:border-amber-300 hover:bg-amber-50/60' : ''}`}
+            type={onClick ? 'button' : undefined}
+            onClick={onClick}
+            title={dica || (onClick ? 'Clique para filtrar a Central de avaliações' : undefined)}
+        >
+            {dica && (
+                <span className="pointer-events-none absolute -top-2 left-1/2 z-20 w-56 -translate-x-1/2 -translate-y-full rounded-md bg-blue-950 px-3 py-2 text-center text-xs font-semibold normal-case leading-5 text-white opacity-0 shadow-lg transition-opacity duration-150 group-hover:opacity-100 group-focus-visible:opacity-100">
+                    {dica}
+                    <span className="absolute left-1/2 top-full -translate-x-1/2 border-[6px] border-transparent border-t-blue-950" />
+                </span>
+            )}
             <div className={`grid h-8 w-8 place-items-center rounded-md ${alerta ? 'bg-amber-100 text-amber-700' : destaque ? 'bg-blue-100 text-blue-700' : 'bg-slate-100 text-slate-600'} [&_svg]:h-4 [&_svg]:w-4`}>{icone}</div>
             <p className="mt-4 text-xs font-bold uppercase text-slate-500">{titulo}</p>
             <p className="mt-1 text-2xl font-extrabold text-blue-950">{valor}</p>
+        </Componente>
+    );
+}
+
+// Painel com cabeçalho clicável para minimizar/expandir o conteúdo
+function Painel({ titulo, subtitulo, children }) {
+    const [aberto, setAberto] = useState(true);
+
+    return (
+        <div className={`rounded-lg border border-slate-200 bg-white p-5 shadow-sm ${aberto ? '' : 'self-start'}`}>
+            <button
+                className="flex w-full items-start justify-between gap-3 text-left"
+                type="button"
+                onClick={() => setAberto((atual) => !atual)}
+                aria-expanded={aberto}
+                title={aberto ? 'Minimizar painel' : 'Expandir painel'}
+            >
+                <span className="min-w-0">
+                    <span className="block text-base font-extrabold text-blue-950">{titulo}</span>
+                    <span className="mt-1 block text-xs text-slate-500">{subtitulo}</span>
+                </span>
+                <span className="mt-0.5 grid h-7 w-7 shrink-0 place-items-center rounded-md text-slate-400 transition hover:bg-slate-100 hover:text-slate-600">
+                    <ChevronDown className={`h-4 w-4 transition-transform duration-200 ${aberto ? 'rotate-180' : ''}`} />
+                </span>
+            </button>
+            {aberto && children}
         </div>
+    );
+}
+
+function PainelDistribuicao({ distribuicao, total }) {
+    return (
+        <Painel titulo="Distribuição por classificação" subtitulo={`Como as ${total} avaliações se dividem entre as classificações.`}>
+            <div className="mt-4 space-y-3">
+                {distribuicao.map((item) => (
+                    <div className="grid grid-cols-[64px_1fr_40px] items-center gap-3" key={item.chave}>
+                        <span className="text-xs font-bold text-slate-600">{item.rotulo}</span>
+                        <div className="h-3 rounded-full bg-slate-100">
+                            <div className={`h-3 rounded-full ${item.cor}`} style={{ width: `${total ? (item.quantidade / total) * 100 : 0}%` }} />
+                        </div>
+                        <span className="text-right text-xs font-extrabold text-blue-950">{item.quantidade}</span>
+                    </div>
+                ))}
+            </div>
+        </Painel>
+    );
+}
+
+function PainelEvolucao({ evolucao }) {
+    const maximo = Math.max(1, ...evolucao.map((item) => item.quantidade));
+
+    return (
+        <Painel titulo="Evolução mensal" subtitulo="Avaliações realizadas e média de nota por mês.">
+            {evolucao.length === 0 ? (
+                <p className="mt-4 text-sm text-slate-500">Sem dados suficientes ainda.</p>
+            ) : (
+                <div className="mt-4 space-y-3">
+                    {evolucao.map((item) => (
+                        <div className="grid grid-cols-[56px_1fr_112px] items-center gap-3" key={item.mes}>
+                            <span className="text-xs font-bold text-slate-600">{item.rotulo}</span>
+                            <div className="h-3 rounded-full bg-slate-100">
+                                <div className="h-3 rounded-full bg-blue-600" style={{ width: `${(item.quantidade / maximo) * 100}%` }} />
+                            </div>
+                            <span className="text-right text-xs font-semibold text-slate-600">
+                                {item.quantidade} aval. · média <strong className="text-blue-950">{formatarMedia(item.media)}</strong>
+                            </span>
+                        </div>
+                    ))}
+                </div>
+            )}
+        </Painel>
+    );
+}
+
+function PainelRanking({ melhores, piores }) {
+    return (
+        <Painel titulo="Ranking de farmácias" subtitulo="Nota média por farmácia, considerando todas as avaliações.">
+            <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                <div>
+                    <p className="text-[11px] font-bold uppercase text-emerald-700">Melhores</p>
+                    <ol className="mt-2 space-y-2">
+                        {melhores.map((item, index) => (
+                            <LinhaRanking key={item.cnpj || item.farmacia} posicao={index + 1} item={item} positiva />
+                        ))}
+                    </ol>
+                </div>
+                <div>
+                    <p className="text-[11px] font-bold uppercase text-red-700">Precisam de atenção</p>
+                    {piores.length === 0 ? (
+                        <p className="mt-2 text-xs leading-5 text-slate-500">Todas as farmácias avaliadas até agora aparecem entre as melhores.</p>
+                    ) : (
+                        <ol className="mt-2 space-y-2">
+                            {piores.map((item, index) => (
+                                <LinhaRanking key={item.cnpj || item.farmacia} posicao={index + 1} item={item} />
+                            ))}
+                        </ol>
+                    )}
+                </div>
+            </div>
+        </Painel>
+    );
+}
+
+function LinhaRanking({ posicao, item, positiva }) {
+    return (
+        <li className="flex items-center gap-2">
+            <span className={`grid h-6 w-6 shrink-0 place-items-center rounded-full text-[11px] font-extrabold ${positiva ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>{posicao}</span>
+            <div className="min-w-0 flex-1">
+                <p className="truncate text-xs font-bold text-slate-800" title={item.farmacia}>{item.farmacia}</p>
+                <p className="text-[11px] text-slate-500">{item.quantidade} avaliação(ões)</p>
+            </div>
+            <span className={`shrink-0 rounded-md px-2 py-1 text-xs font-extrabold ${positiva ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}`}>{formatarMedia(item.media)}</span>
+        </li>
+    );
+}
+
+function PainelProdutividade({ produtividade }) {
+    const maximo = Math.max(1, ...produtividade.map((item) => item.total));
+
+    return (
+        <Painel titulo="Produtividade por avaliador" subtitulo="Avaliações realizadas por cada avaliador.">
+            {produtividade.length === 0 ? (
+                <p className="mt-4 text-sm text-slate-500">Nenhuma avaliação registrada ainda.</p>
+            ) : (
+                <div className="mt-4 space-y-3">
+                    {produtividade.map((item) => (
+                        <div key={item.nome}>
+                            <div className="flex items-center justify-between gap-3">
+                                <p className="truncate text-xs font-bold text-slate-800" title={item.nome}>{item.nome}</p>
+                                <p className="shrink-0 text-[11px] font-semibold text-slate-500">
+                                    <strong className="text-blue-950">{item.esteMes}</strong> este mês · {item.total} no total
+                                </p>
+                            </div>
+                            <div className="mt-1.5 h-2.5 rounded-full bg-slate-100">
+                                <div className="h-2.5 rounded-full bg-blue-600" style={{ width: `${(item.total / maximo) * 100}%` }} />
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
+        </Painel>
     );
 }
 

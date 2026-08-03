@@ -141,7 +141,7 @@ export function processarRespostas(respostas, notasSecao = [], notaGeralInformad
   const notaMedia = notaGeralInformada || notaPorEstrelas || calcularNotaPelasRespostas(respostas);
   const notaGeral = Number(notaMedia.toFixed(2));
   const classificacao = classificarNotaCinco(notaGeral);
-  const resumo = `Avaliacao registrada com ${totalRespostas} respostas. Nota geral ${notaGeral}. Classificacao: ${classificacao}.`;
+  const resumo = gerarResumoExecutivo(respostas, notaGeral, classificacao);
 
   return {
     notaGeral,
@@ -149,6 +149,12 @@ export function processarRespostas(respostas, notasSecao = [], notaGeralInformad
     resumo,
     totalRespostas
   };
+}
+
+// Converte a média das respostas por emoji (1=Ótimo, 2=Regular, 3=Ruim)
+// para a escala de nota de 1 a 5.
+function notaPelaMediaEmoji(mediaEmoji) {
+  return ((3 - mediaEmoji) / 2) * 4 + 1;
 }
 
 function calcularNotaPelasRespostas(respostas) {
@@ -160,7 +166,61 @@ function calcularNotaPelasRespostas(respostas) {
     return 0;
   }
 
-  return ((mediaEmoji - 1) / 2) * 4 + 1;
+  return notaPelaMediaEmoji(mediaEmoji);
+}
+
+function formatarNotaTexto(nota) {
+  return Number(nota).toFixed(1).replace('.', ',');
+}
+
+// Monta um resumo executivo descritivo, citando desempenho por seção e
+// itens que precisam de correção — texto que vai pro relatório em PDF.
+function gerarResumoExecutivo(respostas, notaGeral, classificacao) {
+  const porSecao = new Map();
+  respostas.forEach((item) => {
+    const secao = item.secao || 'Seção';
+    if (!porSecao.has(secao)) porSecao.set(secao, []);
+    porSecao.get(secao).push(Number(item.valor));
+  });
+
+  const secoes = [...porSecao.entries()].map(([secao, valores]) => {
+    const media = valores.reduce((soma, valor) => soma + valor, 0) / valores.length;
+    return { secao, nota: notaPelaMediaEmoji(media) };
+  });
+
+  const aberturas = {
+    Otimo: 'A unidade apresentou desempenho excelente',
+    Bom: 'A unidade apresentou bom desempenho geral',
+    Regular: 'A unidade apresentou desempenho regular',
+    Critico: 'A unidade apresentou desempenho abaixo do esperado'
+  };
+
+  const frases = [
+    `${aberturas[classificacao] || 'A unidade foi avaliada'}, com nota geral ${formatarNotaTexto(notaGeral)} (escala de 1 a 5), apurada a partir de ${respostas.length} itens verificados em ${secoes.length} seções.`
+  ];
+
+  if (secoes.length >= 2) {
+    const ordenadas = [...secoes].sort((a, b) => b.nota - a.nota);
+    const melhor = ordenadas[0];
+    const pior = ordenadas[ordenadas.length - 1];
+
+    if (melhor.nota !== pior.nota) {
+      frases.push(`O melhor resultado foi registrado na seção ${melhor.secao} (${formatarNotaTexto(melhor.nota)}) e o menor na seção ${pior.secao} (${formatarNotaTexto(pior.nota)}).`);
+    } else {
+      frases.push(`As seções avaliadas apresentaram desempenho uniforme, com nota ${formatarNotaTexto(melhor.nota)}.`);
+    }
+  }
+
+  const itensCriticos = respostas.filter((item) => Number(item.valor) === 3).length;
+  if (itensCriticos > 0) {
+    frases.push(itensCriticos === 1
+      ? '1 item recebeu avaliação "Ruim" e demanda ação corretiva prioritária.'
+      : `${itensCriticos} itens receberam avaliação "Ruim" e demandam ação corretiva prioritária.`);
+  } else {
+    frases.push('Nenhum item recebeu avaliação "Ruim" durante a verificação.');
+  }
+
+  return frases.join(' ');
 }
 
 function classificarNotaCinco(nota) {

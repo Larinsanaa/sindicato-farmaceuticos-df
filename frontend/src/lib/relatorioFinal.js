@@ -19,6 +19,31 @@ export function classificarNota(valor) {
     return 'Crítico';
 }
 
+// Converte as respostas por emoji (1=Ótimo, 2=Regular, 3=Ruim) pra escala de 5.
+const NOTA_POR_EMOJI = { 1: 5, 2: 3, 3: 1 };
+
+export function notaPorEmojis(valores) {
+    const notas = (valores || [])
+        .map((valor) => NOTA_POR_EMOJI[Number(valor)])
+        .filter(Boolean);
+
+    if (notas.length === 0) return 0;
+    return notas.reduce((soma, nota) => soma + nota, 0) / notas.length;
+}
+
+// Nota final da seção: média entre a nota das estrelas e a nota derivada
+// dos emojis, pra que as respostas por item também pesem no resultado.
+export function calcularNotaSecao(notaEstrelas, valoresEmojis) {
+    const estrelas = Number(notaEstrelas) || 0;
+    const emojis = notaPorEmojis(valoresEmojis);
+
+    if (estrelas > 0 && emojis > 0) {
+        return Number(((estrelas + emojis) / 2).toFixed(1));
+    }
+
+    return Number((estrelas || emojis).toFixed(1));
+}
+
 export function criarRelatorioFinal({ secoes, respostas, notasSecao, observacoesSecoes, farmacia }) {
     const secoesDetalhadas = secoes.map((secao, secaoIndex) => {
         const perguntas = secao.perguntas.map((pergunta, perguntaIndex) => {
@@ -26,7 +51,7 @@ export function criarRelatorioFinal({ secoes, respostas, notasSecao, observacoes
             return { pergunta, nota };
         });
 
-        const media = Number(notasSecao?.[secaoIndex] || 0);
+        const media = calcularNotaSecao(notasSecao?.[secaoIndex], perguntas.map((item) => item.nota));
 
         return {
             titulo: secao.titulo,

@@ -15,7 +15,7 @@ export default function RelatorioFinalAvaliacao() {
     }
 
     function exportarPdf() {
-        const janela = window.open('', '_blank', 'noopener,noreferrer,width=1200,height=900');
+        const janela = window.open('', '_blank', 'width=1200,height=900');
 
         if (!janela) {
             alert('Não foi possível abrir a janela de exportação.');
@@ -358,18 +358,27 @@ function gerarDestaques(relatorio) {
 function montarHtmlPdf(relatorio, destaques) {
     const data = formatarDataHora(relatorio.criadoEm);
     const secoes = (relatorio.secoes || [])
-        .map((secao) => `
+        .map((secao) => {
+            const percentual = percentualPorMedia(secao.media);
+
+            return `
             <tr>
-                <td>${escapeHtml(secao.titulo)}</td>
-                <td>${escapeHtml(secao.mediaTexto)}</td>
+                <td><strong>${escapeHtml(secao.titulo)}</strong></td>
+                <td class="score">${escapeHtml(secao.mediaTexto)}</td>
+                <td>
+                    <div class="progress" aria-hidden="true">
+                        <span style="width:${percentual}%"></span>
+                    </div>
+                </td>
                 <td>${escapeHtml(secao.observacao || 'Sem observação registrada')}</td>
             </tr>
-        `)
+        `;
+        })
         .join('');
 
     const problemas = (relatorio.problemas || [])
         .map((problema) => `
-            <li>
+            <li class="problem">
                 <strong>${escapeHtml(problema.titulo)}</strong>
                 <span>${escapeHtml(problema.detalhe)}</span>
             </li>
@@ -378,7 +387,7 @@ function montarHtmlPdf(relatorio, destaques) {
 
     const destaquesHtml = destaques
         .map((destaque) => `
-            <li>
+            <li class="highlight">
                 <strong>${escapeHtml(destaque.titulo)}</strong>
                 <span>${escapeHtml(destaque.descricao)}</span>
             </li>
@@ -409,18 +418,27 @@ function montarHtmlPdf(relatorio, destaques) {
             background: #ffffff;
             font-size: 12px;
             line-height: 1.55;
+            print-color-adjust: exact;
+            -webkit-print-color-adjust: exact;
         }
 
         .page {
             max-width: 100%;
         }
 
+        .topbar {
+            height: 7px;
+            margin-bottom: 18px;
+            background: linear-gradient(90deg, #082f68 0%, #1d4ed8 58%, #b08d18 100%);
+            border-radius: 999px;
+        }
+
         .header {
-            display: flex;
-            justify-content: space-between;
-            gap: 16px;
-            border-bottom: 2px solid #dbeafe;
-            padding-bottom: 14px;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) 150px;
+            gap: 22px;
+            border-bottom: 1px solid #cbd5e1;
+            padding-bottom: 18px;
             margin-bottom: 18px;
         }
 
@@ -434,7 +452,8 @@ function montarHtmlPdf(relatorio, destaques) {
 
         h1 {
             margin: 6px 0 6px;
-            font-size: 22px;
+            color: #071d49;
+            font-size: 25px;
             line-height: 1.2;
         }
 
@@ -444,16 +463,29 @@ function montarHtmlPdf(relatorio, destaques) {
         }
 
         .badge {
-            border: 1px solid #cbd5e1;
-            border-radius: 10px;
-            padding: 10px 12px;
-            min-width: 120px;
-            text-align: right;
+            align-self: start;
+            border: 1px solid #bfdbfe;
+            border-radius: 14px;
+            padding: 15px 12px;
+            min-width: 140px;
+            background: #eff6ff;
+            text-align: center;
+        }
+
+        .badge span {
+            display: block;
+            color: #475569;
+            font-size: 10px;
+            font-weight: 800;
+            letter-spacing: .04em;
+            text-transform: uppercase;
         }
 
         .badge strong {
             display: block;
-            font-size: 18px;
+            margin: 8px 0;
+            font-size: 34px;
+            line-height: 1;
             color: #1d4ed8;
         }
 
@@ -466,8 +498,10 @@ function montarHtmlPdf(relatorio, destaques) {
 
         .card {
             border: 1px solid #e2e8f0;
-            border-radius: 14px;
+            border-radius: 13px;
             padding: 16px;
+            background: #ffffff;
+            break-inside: avoid;
         }
 
         .card h2 {
@@ -541,13 +575,37 @@ function montarHtmlPdf(relatorio, destaques) {
             border-bottom: 1px solid #e2e8f0;
             padding: 10px 8px;
             text-align: left;
-            vertical-align: top;
+            vertical-align: middle;
         }
 
         th {
             font-size: 10px;
             text-transform: uppercase;
             color: #64748b;
+        }
+
+        .score {
+            width: 62px;
+            color: #071d49;
+            font-weight: 800;
+            text-align: right;
+            white-space: nowrap;
+        }
+
+        .progress {
+            width: 100%;
+            min-width: 90px;
+            height: 9px;
+            overflow: hidden;
+            border-radius: 999px;
+            background: #dbeafe;
+        }
+
+        .progress span {
+            display: block;
+            height: 100%;
+            border-radius: inherit;
+            background: linear-gradient(90deg, #2563eb, #60a5fa);
         }
 
         ul {
@@ -580,6 +638,23 @@ function montarHtmlPdf(relatorio, destaques) {
             gap: 16px;
             color: #64748b;
             font-size: 10px;
+            border-top: 1px solid #e2e8f0;
+            padding-top: 10px;
+        }
+
+        .assinaturas {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 36px;
+            margin-top: 28px;
+        }
+
+        .assinatura {
+            border-top: 1px solid #94a3b8;
+            padding-top: 8px;
+            color: #64748b;
+            font-size: 10px;
+            text-align: center;
         }
 
         @media print {
@@ -591,10 +666,11 @@ function montarHtmlPdf(relatorio, destaques) {
 </head>
 <body>
     <div class="page">
+        <div class="topbar"></div>
         <div class="header">
             <div>
-                <div class="brand">Sindicato Farmacêuticos DF</div>
-                <h1>Relatório de Avaliação</h1>
+                <div class="brand">Sincofarma-DF</div>
+                <h1>Relatório Final de Avaliação</h1>
                 <p class="meta">${escapeHtml(relatorio.farmacia)} • CNPJ ${escapeHtml(relatorio.cnpj)}</p>
                 <p class="meta">${escapeHtml(relatorio.endereco)}</p>
                 <p class="meta">Avaliado em ${escapeHtml(data)}</p>
@@ -641,6 +717,7 @@ function montarHtmlPdf(relatorio, destaques) {
                     <tr>
                         <th>Seção</th>
                         <th>Média</th>
+                        <th>Indicador</th>
                         <th>Observação</th>
                     </tr>
                 </thead>
@@ -654,7 +731,7 @@ function montarHtmlPdf(relatorio, destaques) {
             <section class="card">
                 <h2>Problemas identificados</h2>
                 <ul>
-                    ${problemas}
+                    ${problemas || '<li class="problem"><strong>Nenhum problema crítico identificado</strong><span>As seções avaliadas não registraram alertas relevantes.</span></li>'}
                 </ul>
             </section>
 
@@ -666,8 +743,13 @@ function montarHtmlPdf(relatorio, destaques) {
             </section>
         </div>
 
+        <div class="assinaturas">
+            <div class="assinatura">Responsável pela avaliação</div>
+            <div class="assinatura">Conferência administrativa</div>
+        </div>
+
         <div class="footer">
-            <div>Relatório gerado automaticamente pelo sistema.</div>
+            <div>Relatório gerado automaticamente pelo Sistema do Sincofarma-DF.</div>
             <div>${escapeHtml(data)}</div>
         </div>
     </div>
@@ -703,6 +785,11 @@ function formatarDataHora(valor) {
         hour: '2-digit',
         minute: '2-digit'
     }).format(data);
+}
+
+function percentualPorMedia(media) {
+    const nota = Number(media) || 0;
+    return Math.max(0, Math.min(100, (nota / 5) * 100));
 }
 
 

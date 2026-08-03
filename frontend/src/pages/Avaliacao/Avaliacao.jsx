@@ -2,7 +2,9 @@
 import { useNavigate } from 'react-router-dom';
 import { Building2, Check, CreditCard, Package, Star, Store, UserSquare2, Users } from 'lucide-react';
 import Cabecalho from '../../components/Cabecalho.jsx';
-import { criarRelatorioFinal, formatarNota, salvarRelatorioFinal } from '../../lib/relatorioFinal.js';
+import { apiFetch } from '../../lib/api.js';
+import { carregarFarmaciaSelecionada } from '../../lib/farmaciaSelecionada.js';
+import { calcularNotaSecao, criarRelatorioFinal, formatarNota, salvarRelatorioFinal } from '../../lib/relatorioFinal.js';
 
 export default function Avaliacao() {
     const navigate = useNavigate();
@@ -25,6 +27,9 @@ export default function Avaliacao() {
     const [respostas, setRespostas] = useState({});
     const [notasSecao, setNotasSecao] = useState({});
     const [observacoesSecoes, setObservacoesSecoes] = useState({});
+    const [salvando, setSalvando] = useState(false);
+    const [erroSalvar, setErroSalvar] = useState('');
+    const farmaciaSelecionada = useMemo(() => carregarFarmaciaSelecionada(), []);
 
     function avaliarPergunta(secaoIndex, perguntaIndex, valor) {
         const chave = `${secaoIndex}-${perguntaIndex}`;
@@ -46,11 +51,12 @@ export default function Avaliacao() {
     }
 
     function mediaSecao(secaoIndex) {
-        return Number(notasSecao[secaoIndex] || 0);
+        const valoresEmojis = secoes[secaoIndex].perguntas.map((_, perguntaIndex) => respostas[`${secaoIndex}-${perguntaIndex}`]);
+        return calcularNotaSecao(notasSecao[secaoIndex], valoresEmojis);
     }
 
     function mediaGeral() {
-        const notas = secoes.map((_, index) => Number(notasSecao[index] || 0)).filter((nota) => nota > 0);
+        const notas = secoes.map((_, index) => mediaSecao(index)).filter((nota) => nota > 0);
 
         if (notas.length === 0) return 0;
         return Number((notas.reduce((soma, nota) => soma + nota, 0) / notas.length).toFixed(1));
@@ -66,10 +72,15 @@ export default function Avaliacao() {
         window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
-    function finalizarAvaliacao() {
+    async function finalizarAvaliacao() {
         const todasRespondidas = secoes.every((_, index) => secaoCompleta(index));
         if (!todasRespondidas) {
             alert('Responda todas as perguntas e selecione as notas em estrelas antes de finalizar.');
+            return;
+        }
+
+        if (!farmaciaSelecionada) {
+            setErroSalvar('Busque e selecione uma farmácia antes de finalizar a avaliação.');
             return;
         }
 
@@ -78,20 +89,44 @@ export default function Avaliacao() {
             respostas,
             notasSecao,
             observacoesSecoes,
-            farmacia: {
-                nome: 'Mais Farma',
-                cnpj: '05.123.456/0001-89',
-                endereco: 'R. das Farmácias, 123, Centro, Cidade'
-            }
+            farmacia: farmaciaSelecionada
         });
 
-        salvarRelatorioFinal(relatorio);
-        navigate('/relatorio-final-avaliacao');
+        setSalvando(true);
+        setErroSalvar('');
+
+        try {
+            const localizacao = obterLocalizacaoSalva(farmaciaSelecionada) || await obterLocalizacaoAtual();
+            const resultado = await apiFetch('/api/avaliacoes', {
+                method: 'POST',
+                body: JSON.stringify(montarPayloadAvaliacao({
+                    secoes,
+                    respostas,
+                    notasSecao,
+                    observacoesSecoes,
+                    farmacia: farmaciaSelecionada,
+                    relatorio,
+                    localizacao
+                }))
+            });
+
+            salvarRelatorioFinal({
+                ...relatorio,
+                id: resultado?.avaliacao?.id || relatorio.id,
+                criadoEm: resultado?.avaliacao?.created_at || relatorio.criadoEm
+            });
+            navigate('/relatorio-final-avaliacao');
+        } catch (error) {
+            setErroSalvar(error.message || 'Não foi possível salvar a avaliação.');
+        } finally {
+            setSalvando(false);
+        }
     }
 
     const totalPerguntas = secoes.reduce((total, secao) => total + secao.perguntas.length, 0);
     const perguntasRespondidas = Object.keys(respostas).length;
     const mediaAtual = mediaSecao(secaoAtual);
+    const estrelasAtual = notasSecao[secaoAtual] || 0;
 
     return (
         <main className="min-h-dvh bg-slate-50 text-slate-900">
@@ -109,7 +144,7 @@ export default function Avaliacao() {
                         </div>
 
                         <div className="rounded-lg border border-slate-200 bg-white p-4 shadow-sm lg:min-w-[340px]">
-                            <div className="grid grid-cols-3 gap-3 text-center">
+                            <div className="grid grid-cols-3 gap-3">
                                 <InfoCard titulo="Seção" valor={`${secaoAtual + 1}/${secoes.length}`} />
                                 <InfoCard titulo="Respostas" valor={`${perguntasRespondidas}/${totalPerguntas}`} />
                                 <InfoCard titulo="Média" valor={mediaGeral() ? formatarNota(mediaGeral()) : '0,0'} destaque />
@@ -144,7 +179,7 @@ export default function Avaliacao() {
                                         key={secao.titulo}
                                         type="button"
                                         onClick={() => trocarSecao(index)}
-                                        className={`flex w-[150px] shrink-0 items-center gap-3 rounded-md border p-3 text-left transition lg:w-full ${
+                                        className={`flex min-h-[104px] w-[160px] shrink-0 items-start gap-3 rounded-md border p-3 text-left transition lg:w-full ${
                                             ativa
                                                 ? 'border-blue-200 bg-blue-50'
                                                 : respondida
@@ -156,9 +191,9 @@ export default function Avaliacao() {
                                             <Icone className="h-5 w-5" />
                                         </span>
 
-                                        <span className="min-w-0 flex-1">
-                                            <span className="block text-sm font-bold text-slate-900">{secao.titulo}</span>
-                                            <span className="block text-xs text-slate-500">{secao.perguntas.length} itens</span>
+                                        <span className="flex min-w-0 flex-1 flex-col gap-1">
+                                            <span className="block truncate text-sm font-bold leading-5 text-slate-900">{secao.titulo}</span>
+                                            <span className="block text-xs leading-4 text-slate-500">{secao.perguntas.length} itens</span>
                                             <span className="mt-1 block text-xs font-semibold text-slate-600">
                                                 {media ? `Média ${formatarNota(media)}` : 'Sem média'}
                                             </span>
@@ -224,7 +259,7 @@ export default function Avaliacao() {
                                                         key={item.texto}
                                                         type="button"
                                                         onClick={() => avaliarPergunta(secaoAtual, perguntaIndex, item.valor)}
-                                                        className={`flex items-center gap-3 rounded-md border p-3 text-left transition hover:-translate-y-0.5 ${selecionada ? item.cor : 'border-slate-200 bg-white hover:border-sky-300'}`}
+                                                        className={`flex min-h-16 items-center gap-3 rounded-md border p-3 text-left transition hover:-translate-y-0.5 ${selecionada ? item.cor : 'border-slate-200 bg-white hover:border-sky-300'}`}
                                                     >
                                                         <span className="text-3xl leading-none">{item.emoji}</span>
                                                         <span className={`text-sm font-bold ${selecionada ? 'text-inherit' : 'text-slate-700'}`}>{item.texto}</span>
@@ -249,7 +284,7 @@ export default function Avaliacao() {
 
                                 <div className="mt-4 flex flex-wrap items-center gap-2">
                                     {[1, 2, 3, 4, 5].map((valor) => {
-                                        const selecionada = mediaAtual >= valor;
+                                        const selecionada = estrelasAtual >= valor;
 
                                         return (
                                             <button
@@ -264,7 +299,7 @@ export default function Avaliacao() {
                                         );
                                     })}
                                     <span className="flex items-center self-center text-sm font-semibold text-slate-500">
-                                        {mediaAtual ? `Nota ${formatarNota(mediaAtual)}` : 'Selecione a nota'}
+                                        {estrelasAtual ? `Nota ${estrelasAtual}` : 'Selecione a nota'}
                                     </span>
                                 </div>
                             </article>
@@ -291,11 +326,17 @@ export default function Avaliacao() {
                                         Próxima seção
                                     </button>
                                 ) : (
-                                    <button type="button" onClick={finalizarAvaliacao} className="h-12 rounded-md bg-blue-700 px-4 text-sm font-bold text-white hover:bg-blue-800 sm:flex-1">
-                                        Finalizar avaliação
+                                    <button type="button" onClick={finalizarAvaliacao} disabled={salvando} className="h-12 rounded-md bg-blue-700 px-4 text-sm font-bold text-white hover:bg-blue-800 disabled:cursor-not-allowed disabled:opacity-70 sm:flex-1">
+                                        {salvando ? 'Salvando avaliação...' : 'Finalizar avaliação'}
                                     </button>
                                 )}
                             </div>
+
+                            {erroSalvar && (
+                                <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm font-semibold text-red-700">
+                                    {erroSalvar}
+                                </div>
+                            )}
                         </div>
                     </section>
                 </div>
@@ -304,11 +345,81 @@ export default function Avaliacao() {
     );
 }
 
+function montarPayloadAvaliacao({ secoes, respostas, notasSecao, observacoesSecoes, farmacia, relatorio, localizacao }) {
+    const respostasDetalhadas = secoes.flatMap((secao, secaoIndex) => (
+        secao.perguntas.map((pergunta, perguntaIndex) => ({
+            secao: secao.titulo,
+            pergunta,
+            valor: Number(respostas[`${secaoIndex}-${perguntaIndex}`])
+        }))
+    ));
+
+    const observacoes = secoes
+        .map((secao, index) => {
+            const texto = String(observacoesSecoes[index] || '').trim();
+            return texto ? `${secao.titulo}: ${texto}` : '';
+        })
+        .filter(Boolean)
+        .join('\n');
+
+    return {
+        farmacia: farmacia.nome,
+        cnpj: farmacia.cnpj,
+        endereco: farmacia.endereco,
+        cidade: farmacia.municipio || null,
+        estado: farmacia.uf || null,
+        observacao: observacoes || null,
+        respostas: respostasDetalhadas,
+        notasSecao,
+        notaGeral: relatorio.mediaGeral,
+        localizacao_ativa: true,
+        latitude: localizacao.latitude,
+        longitude: localizacao.longitude
+    };
+}
+
+function obterLocalizacaoAtual() {
+    return new Promise((resolve, reject) => {
+        if (!navigator.geolocation) {
+            reject(new Error('Este navegador não permite obter a localização. A avaliação não foi salva.'));
+            return;
+        }
+
+        navigator.geolocation.getCurrentPosition(
+            (posicao) => {
+                resolve({
+                    latitude: posicao.coords.latitude,
+                    longitude: posicao.coords.longitude
+                });
+            },
+            () => {
+                reject(new Error('Ative ou permita a localização para salvar a avaliação no histórico.'));
+            },
+            {
+                enableHighAccuracy: true,
+                timeout: 12000,
+                maximumAge: 60000
+            }
+        );
+    });
+}
+
+function obterLocalizacaoSalva(farmacia) {
+    const latitude = Number(farmacia?.localizacao?.latitude);
+    const longitude = Number(farmacia?.localizacao?.longitude);
+
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+        return null;
+    }
+
+    return { latitude, longitude };
+}
+
 function InfoCard({ titulo, valor, destaque = false }) {
     return (
-        <div className={`rounded-md border border-slate-200 bg-slate-50 p-3 text-center ${destaque ? 'shadow-none' : 'shadow-sm'}`}>
-            <p className="text-xs font-semibold uppercase text-slate-500">{titulo}</p>
-            <p className="mt-1 text-lg font-extrabold text-blue-950">{valor}</p>
+        <div className={`flex min-h-[76px] flex-col items-center justify-center rounded-md border border-slate-200 bg-slate-50 p-3 text-center ${destaque ? 'shadow-none' : 'shadow-sm'}`}>
+            <p className="text-[11px] font-bold uppercase leading-4 text-slate-500">{titulo}</p>
+            <p className="mt-1 text-lg font-extrabold leading-6 text-blue-950">{valor}</p>
         </div>
     );
 }

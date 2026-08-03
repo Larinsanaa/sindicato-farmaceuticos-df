@@ -5,6 +5,7 @@ import {
     CheckCircle2,
     CircleDashed,
     Copy,
+    KeyRound,
     LayoutDashboard,
     Search,
     Shield,
@@ -240,6 +241,8 @@ export default function Configuracao() {
 }
 
 function SecaoPerfil({ usuario, administrador }) {
+    const navigate = useNavigate();
+
     return (
         <div>
             <p className="text-xs font-bold uppercase text-blue-700">Conta</p>
@@ -252,18 +255,33 @@ function SecaoPerfil({ usuario, administrador }) {
                 <Info label="Perfil" value={administrador ? 'Administrador' : 'Avaliador'} />
                 <Info label="Acesso" value={administrador ? 'Gestão administrativa' : 'Avaliações próprias'} />
             </div>
+
+            <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-blue-100 bg-blue-50 p-4">
+                <div>
+                    <p className="text-sm font-extrabold text-blue-950">Dados de acesso</p>
+                    <p className="mt-1 text-sm text-slate-600">Altere o nome, o e-mail de login e a senha na página do seu perfil.</p>
+                </div>
+                <button
+                    className="inline-flex h-10 items-center gap-2 rounded-md bg-blue-700 px-4 text-sm font-extrabold text-white hover:bg-blue-800"
+                    type="button"
+                    onClick={() => navigate('/perfil')}
+                >
+                    <KeyRound className="h-4 w-4" />
+                    Alterar dados de acesso
+                </button>
+            </div>
         </div>
     );
 }
 
 function SecaoPermissoes({ administrador }) {
     return (
-        <div>
+        <div className="lg:mx-auto lg:max-w-3xl lg:text-center">
             <p className="text-xs font-bold uppercase text-blue-700">Permissões</p>
             <h1 className="mt-1 text-2xl font-extrabold text-blue-950">Escopo de acesso</h1>
-            <p className="mt-2 text-sm leading-6 text-slate-600">As permissões refletem o tipo de conta autenticada no sistema.</p>
+            <p className="mt-2 text-sm leading-6 text-slate-600 lg:mx-auto lg:max-w-xl">As permissões refletem o tipo de conta autenticada no sistema.</p>
 
-            <div className="mt-6 grid gap-3">
+            <div className="mt-6 grid gap-3 lg:grid-cols-2 lg:gap-4">
                 {administrador ? (
                     <>
                         <Permissao texto="Visualizar avaliações de todos os avaliadores" ativo />
@@ -468,8 +486,8 @@ function Info({ label, value }) {
 
 function Permissao({ texto, ativo }) {
     return (
-        <div className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white p-4">
-            <span className="text-sm font-medium text-slate-700">{texto}</span>
+        <div className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white p-4 lg:min-h-[96px] lg:flex-col lg:justify-center lg:gap-2 lg:px-5 lg:py-4 lg:text-center">
+            <span className="text-sm font-medium leading-5 text-slate-700 lg:max-w-[260px]">{texto}</span>
             <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-bold ${ativo ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
                 {ativo ? 'Permitido' : 'Bloqueado'}
             </span>

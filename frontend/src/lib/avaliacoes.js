@@ -28,15 +28,19 @@ function formatarNumero(valor) {
     return numero.toFixed(1).replace('.', ',');
 }
 
-function converterNotaParaEscalaCinco(valor) {
-    const numero = Number(valor);
-
-    if (Number.isNaN(numero)) {
+function formatarNotaHistorico(valor) {
+    if (valor === undefined || valor === null || valor === '') {
         return '';
     }
 
-    if (numero <= 3) {
-        return formatarNumero((numero * 2) - 1);
+    if (typeof valor === 'string' && valor.includes(',')) {
+        return valor;
+    }
+
+    const numero = Number(String(valor).replace(',', '.'));
+
+    if (Number.isNaN(numero)) {
+        return String(valor);
     }
 
     return formatarNumero(numero);
@@ -85,19 +89,66 @@ function normalizarCriterios(item) {
 
     return Object.entries(grupos).map(([nome, grupo]) => {
         const media = grupo.quantidade > 0 ? grupo.soma / grupo.quantidade : 0;
-        const valor = Math.max(0, Math.min(100, ((media - 1) / 2) * 100));
+        const nota = ((3 - media) / 2) * 4 + 1; // 1=Ótimo..3=Ruim -> escala 1 a 5
+        const valor = Math.max(0, Math.min(100, ((nota - 1) / 4) * 100));
 
         return {
             nome,
-            valor: Number(valor.toFixed(0))
+            valor: Number(valor.toFixed(0)),
+            nota: Number(nota.toFixed(1)),
+            notaTexto: formatarNumero(nota)
         };
     });
+}
+
+// Reescreve o resumo executivo a partir das respostas reais — substitui o
+// texto genérico gravado no banco por avaliações antigas.
+export function gerarResumoExecutivo({ respostas = [], notaGeral, classificacao, criterios = [] }) {
+    if (!criterios.length) {
+        return '';
+    }
+
+    const aberturas = {
+        Otimo: 'A unidade apresentou desempenho excelente',
+        Bom: 'A unidade apresentou bom desempenho geral',
+        Regular: 'A unidade apresentou desempenho regular',
+        Critico: 'A unidade apresentou desempenho abaixo do esperado'
+    };
+
+    const abertura = aberturas[String(classificacao || '').replace('Ótimo', 'Otimo').replace('Crítico', 'Critico')] || 'A unidade foi avaliada';
+    const notaTexto = formatarNotaHistorico(notaGeral) || '-';
+    const frases = [
+        `${abertura}, com nota geral ${notaTexto} (escala de 1 a 5), apurada a partir de ${respostas.length} itens verificados em ${criterios.length} seções.`
+    ];
+
+    if (criterios.length >= 2) {
+        const ordenados = [...criterios].sort((a, b) => b.nota - a.nota);
+        const melhor = ordenados[0];
+        const pior = ordenados[ordenados.length - 1];
+
+        if (melhor.nota !== pior.nota) {
+            frases.push(`O melhor resultado foi registrado na seção ${melhor.nome} (${melhor.notaTexto}) e o menor na seção ${pior.nome} (${pior.notaTexto}).`);
+        } else {
+            frases.push(`As seções avaliadas apresentaram desempenho uniforme, com nota ${melhor.notaTexto}.`);
+        }
+    }
+
+    const itensCriticos = respostas.filter((item) => Number(item.valor) === 3).length;
+    if (itensCriticos > 0) {
+        frases.push(itensCriticos === 1
+            ? '1 item recebeu avaliação "Ruim" e demanda ação corretiva prioritária.'
+            : `${itensCriticos} itens receberam avaliação "Ruim" e demandam ação corretiva prioritária.`);
+    } else {
+        frases.push('Nenhum item recebeu avaliação "Ruim" durante a verificação.');
+    }
+
+    return frases.join(' ');
 }
 
 export function normalizarAvaliacao(item, fallback = {}) {
     const dataInfo = extrairData(item?.created_at || item?.updated_at || item?.data || fallback.data);
     const notaBruta = item?.nota_geral ?? item?.notaGeral ?? item?.nota ?? fallback.notaGeral;
-    const notaGeral = converterNotaParaEscalaCinco(notaBruta || '');
+    const notaGeral = formatarNotaHistorico(notaBruta || '');
 
     return {
         id: String(item?.id ?? fallback.id ?? ''),
@@ -135,10 +186,23 @@ export function normalizarDetalheAvaliacao(payload, fallback = null) {
     const avaliacao = payload.avaliacao || payload;
     const respostas = Array.isArray(payload.respostas) ? payload.respostas : avaliacao?.respostas || [];
     const criterioFonte = respostas.length > 0 ? { ...avaliacao, respostas } : avaliacao;
+    const normalizada = normalizarAvaliacao(criterioFonte, fallback || {});
+
+    // Prefere um resumo gerado a partir das respostas reais; mantém o do
+    // banco só quando não há dados suficientes pra reconstruí-lo.
+    const resumoGerado = gerarResumoExecutivo({
+        respostas,
+        notaGeral: normalizada.notaGeral,
+        classificacao: normalizada.classificacao,
+        criterios: normalizada.criterios
+    });
 
     return {
-        ...normalizarAvaliacao(criterioFonte, fallback || {}),
+        ...normalizada,
+        resumo: resumoGerado || normalizada.resumo,
         id: String(avaliacao?.id ?? fallback?.id ?? ''),
-        respostas
+        respostas,
+        totalItens: respostas.length,
+        itensCriticos: respostas.filter((item) => Number(item.valor) === 3).length
     };
 }

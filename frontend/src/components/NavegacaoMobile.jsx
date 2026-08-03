@@ -15,7 +15,7 @@ export default function NavegacaoMobile() {
     const itens = [
         { texto: 'Início', icone: <Home />, rota: '/dashboard', ativo: location.pathname === '/dashboard' },
         { texto: 'Avaliações', icone: <ClipboardCheck />, rota: '/historico-avaliacoes', ativo: location.pathname === '/historico-avaliacoes' || location.pathname.startsWith('/relatorio-avaliacao/') },
-        ...(administrador ? [{ texto: 'Cadastrar avaliador', icone: <UserPlus />, rota: '/cadastrar-avaliador', ativo: location.pathname === '/cadastrar-avaliador' }] : []),
+        ...(administrador ? [{ texto: 'Novo avaliador', icone: <UserPlus />, rota: '/cadastrar-avaliador', ativo: location.pathname === '/cadastrar-avaliador' }] : []),
         ...(!administrador ? [{ texto: 'Nova avaliação', icone: <PlusCircle />, rota: '/nova-avaliacao', ativo: ['/nova-avaliacao', '/avaliacao', '/relatorio-final-avaliacao'].includes(location.pathname) }] : []),
         { texto: 'Perfil', icone: <UserRound />, rota: '/perfil', ativo: location.pathname === '/perfil' },
         ...(administrador ? [{ texto: 'Configuração', icone: <Settings />, rota: '/configuracao', ativo: location.pathname === '/configuracao' }] : [])

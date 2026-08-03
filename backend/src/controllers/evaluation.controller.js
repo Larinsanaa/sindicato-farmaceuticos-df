@@ -14,7 +14,7 @@ class EvaluationController {
         return res.status(400).json({ error: locationValidation.error });
       }
 
-      const { farmacia, cnpj, endereco, observacao } = req.body;
+      const { farmacia, cnpj, endereco, cidade, estado, observacao } = req.body;
       const respostas = validation.respostas;
       const resultado = processarRespostas(respostas, validation.notasSecao, validation.notaGeral);
       const evaluationPayload = {
@@ -22,6 +22,8 @@ class EvaluationController {
         farmacia: farmacia.trim(),
         cnpj: cnpj.trim(),
         endereco: endereco.trim(),
+        cidade: cidade ? String(cidade).trim() : null,
+        estado: estado ? String(estado).trim() : null,
         observacao: observacao ? String(observacao).trim() : null,
         nota_geral: resultado.notaGeral,
         classificacao: resultado.classificacao,

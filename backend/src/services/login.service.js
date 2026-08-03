@@ -1,4 +1,4 @@
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import { jwtSecret, supabase } from '../config/config.js';
 import { obterTipoUsuario } from '../utils/userRole.util.js';
@@ -15,6 +15,11 @@ class LoginService {
       throw new Error('E-mail ou senha incorretos.');
     }
 
+    // Avaliador desativado pelo administrador não pode entrar.
+    if (user.ativo === false) {
+      throw new Error('Este acesso está desativado. Procure a administração.');
+    }
+
     const token = jwt.sign(
       { id: user.id },
       jwtSecret,
@@ -27,7 +32,7 @@ class LoginService {
         nome: user.nome,
         email: user.email,
         tipo: obterTipoUsuario(user),
-        foto_perfil: null
+        foto_perfil: user.foto_perfil || null
       },
       token
     };
