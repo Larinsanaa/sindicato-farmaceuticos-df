@@ -18,6 +18,13 @@
     const isJson = response.headers.get('content-type')?.includes('application/json');
     const payload = isJson ? await response.json() : null;
 
+    if (response.status === 401 && token) {
+        // Sessão expirada ou inválida: encerra e volta pro login.
+        limparSessao();
+        window.location.href = '/login';
+        throw new Error('Sessão expirada. Faça login novamente.');
+    }
+
     if (!response.ok) {
         const message = payload?.error || payload?.message || 'Não foi possível concluir a operação.';
         throw new Error(message);
