@@ -18,39 +18,6 @@ import {
 import Cabecalho from '../../components/Cabecalho.jsx';
 import { apiFetch, obterUsuarioLogado } from '../../lib/api.js';
 
-const avaliadoresDemo = [
-    {
-        id: 'demo-1',
-        nome: 'Carla Menezes',
-        cpf: '12345678901',
-        email: 'carla.menezes@demonstracao.com.br',
-        status: 'Ativo',
-        regioes: 'Plano Piloto e Asa Norte',
-        avaliacoes: 18,
-        demonstracao: true
-    },
-    {
-        id: 'demo-2',
-        nome: 'Rafael Nunes',
-        cpf: '98765432100',
-        email: 'rafael.nunes@demonstracao.com.br',
-        status: 'Pendente',
-        regioes: 'Taguatinga e Ceilândia',
-        avaliacoes: 0,
-        demonstracao: true
-    },
-    {
-        id: 'demo-3',
-        nome: 'Patrícia Lima',
-        cpf: '45678912300',
-        email: 'patricia.lima@demonstracao.com.br',
-        status: 'Inativo',
-        regioes: 'Sobradinho e Planaltina',
-        avaliacoes: 7,
-        demonstracao: true
-    }
-];
-
 export default function Configuracao() {
     const navigate = useNavigate();
     const usuario = useMemo(() => obterUsuarioLogado(), []);
@@ -59,8 +26,8 @@ export default function Configuracao() {
     const [notificacao, setNotificacao] = useState({ texto: '', tipo: '' });
     const [busca, setBusca] = useState('');
     const [sugestoesAbertas, setSugestoesAbertas] = useState(false);
-    const [avaliadores, setAvaliadores] = useState(avaliadoresDemo);
-    const [avaliadorSelecionadoId, setAvaliadorSelecionadoId] = useState(avaliadoresDemo[0]?.id || '');
+    const [avaliadores, setAvaliadores] = useState([]);
+    const [avaliadorSelecionadoId, setAvaliadorSelecionadoId] = useState('');
     const [carregandoAvaliadores, setCarregandoAvaliadores] = useState(false);
     const [gerandoLinkId, setGerandoLinkId] = useState('');
 
@@ -83,13 +50,12 @@ export default function Configuracao() {
                     email: item.email,
                     status: item.ativo === false ? 'Inativo' : 'Ativo',
                     regioes: 'Não definido',
-                    avaliacoes: item.total_avaliacoes || 0,
-                    demonstracao: false
+                    avaliacoes: item.total_avaliacoes || 0
                 }))
                 : [];
 
-            setAvaliadores([...reais, ...avaliadoresDemo]);
-            setAvaliadorSelecionadoId((atual) => atual || reais[0]?.id || avaliadoresDemo[0]?.id || '');
+            setAvaliadores(reais);
+            setAvaliadorSelecionadoId((atual) => atual || reais[0]?.id || '');
         } catch (error) {
             setNotificacao({ texto: error.message, tipo: 'erro' });
         } finally {
@@ -128,7 +94,7 @@ export default function Configuracao() {
         const novoStatus = avaliador.status === 'Ativo' ? 'Inativo' : 'Ativo';
         const ativo = novoStatus === 'Ativo';
 
-        if (!avaliador.demonstracao && avaliador.backendId) {
+        if (avaliador.backendId) {
             try {
                 await apiFetch(`/api/avaliadores/${avaliador.backendId}/status`, {
                     method: 'PATCH',
@@ -150,9 +116,7 @@ export default function Configuracao() {
         setGerandoLinkId(avaliador.id);
 
         try {
-            const link = avaliador.demonstracao
-                ? `${window.location.origin}/redefinir-senha?token=demo-${encodeURIComponent(avaliador.id)}`
-                : await gerarLinkReal(avaliador);
+            const link = await gerarLinkReal(avaliador);
 
             await navigator.clipboard.writeText(link);
             setNotificacao({ texto: `Link de acesso de ${avaliador.nome} copiado.`, tipo: 'sucesso' });
@@ -435,7 +399,6 @@ function SecaoAvaliadores({
                                 <Info label="CPF" value={formatarCpf(avaliadorSelecionado.cpf)} />
                                 <Info label="Região" value={avaliadorSelecionado.regioes} />
                                 <Info label="Avaliações" value={String(avaliadorSelecionado.avaliacoes)} />
-                                <Info label="Origem" value={avaliadorSelecionado.demonstracao ? 'Demonstração' : 'Banco de dados'} />
                             </div>
 
                             <div className="mt-4 grid gap-2">

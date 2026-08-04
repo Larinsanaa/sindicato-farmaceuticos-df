@@ -115,19 +115,6 @@ export default function NovaAvaliacao() {
         );
     }
 
-    function usarLocalizacaoTeste() {
-        setAviso('');
-        // Simula o avaliador exatamente no endereço da farmácia (ou no centro
-        // de Brasília se a geocodificação não encontrou coordenadas).
-        salvarFarmaciaSelecionada({
-            ...farmacia,
-            localizacao: farmacia?.coordenadas || {
-                latitude: -15.793889,
-                longitude: -47.882778
-            }
-        });
-        navigate('/avaliacao');
-    }
 
     return (
         <main className="min-h-dvh bg-slate-50 text-slate-900">
@@ -194,10 +181,6 @@ export default function NovaAvaliacao() {
                             <button className="mt-5 flex h-12 w-full items-center justify-center gap-2 rounded-md bg-blue-700 text-sm font-extrabold text-white hover:bg-blue-800 disabled:cursor-wait disabled:opacity-70" type="button" onClick={solicitarLocalizacao} disabled={carregandoLocalizacao}>
                                 {carregandoLocalizacao ? <Loader2 className="h-5 w-5 animate-spin" /> : <LocateFixed className="h-5 w-5" />}
                                 {carregandoLocalizacao ? 'Validando...' : 'Confirmar localização'}
-                            </button>
-
-                            <button className="mt-3 h-11 w-full rounded-md border border-slate-200 text-sm font-bold text-slate-700 hover:border-sky-300 hover:text-sky-700" type="button" onClick={usarLocalizacaoTeste}>
-                                Usar localização de teste
                             </button>
                         </div>
                     </section>

@@ -1,10 +1,9 @@
-﻿import { useEffect, useMemo, useState } from 'react';
+﻿import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { ArrowLeft, Download, Loader2, Send, Star } from 'lucide-react';
 import Cabecalho from '../../components/Cabecalho.jsx';
-import { avaliacoes as avaliacoesMock } from '../../data/avaliacoes.js';
-import { apiFetch, obterUsuarioLogado } from '../../lib/api.js';
-import { normalizarAvaliacao, normalizarDetalheAvaliacao } from '../../lib/avaliacoes.js';
+import { apiFetch } from '../../lib/api.js';
+import { normalizarDetalheAvaliacao } from '../../lib/avaliacoes.js';
 import { exportarAvaliacaoPdf } from '../../lib/exportarRelatorio.js';
 
 export default function RelatorioAvaliacao() {
@@ -14,17 +13,6 @@ export default function RelatorioAvaliacao() {
     const [erro, setErro] = useState('');
     const [avaliacao, setAvaliacao] = useState(null);
     const [erroExportar, setErroExportar] = useState('');
-
-    const usuario = useMemo(() => obterUsuarioLogado(), []);
-    const fallback = useMemo(
-        () => {
-            if (usuario?.tipo !== 'presidente') return null;
-            const idOriginal = String(id).replace(/^demo-/, '');
-            const encontrado = avaliacoesMock.find((item) => item.id === idOriginal);
-            return encontrado ? { ...encontrado, id, demonstracao: id.startsWith('demo-') } : null;
-        },
-        [id, usuario?.tipo]
-    );
 
     function exportar() {
         try {
@@ -44,19 +32,14 @@ export default function RelatorioAvaliacao() {
 
             try {
                 const resposta = await apiFetch(`/api/avaliacoes/${id}`);
-                const normalizada = normalizarDetalheAvaliacao(resposta, fallback ? normalizarAvaliacao(fallback) : null);
+                const normalizada = normalizarDetalheAvaliacao(resposta, null);
 
                 if (ativo) {
                     setAvaliacao(normalizada);
                 }
             } catch (error) {
                 if (ativo) {
-                    if (fallback) {
-                        setAvaliacao(normalizarAvaliacao(fallback));
-                        setErro('Exibindo relatório de exemplo local porque a API não retornou o detalhe.');
-                    } else {
-                        setErro('Relatório não encontrado.');
-                    }
+                    setErro('Relatório não encontrado.');
                 }
             } finally {
                 if (ativo) {
@@ -70,7 +53,7 @@ export default function RelatorioAvaliacao() {
         return () => {
             ativo = false;
         };
-    }, [fallback, id]);
+    }, [id]);
 
     if (carregando) {
         return (

@@ -6,7 +6,6 @@ import {
     UserPlus, UserRound, UsersRound, X
 } from 'lucide-react';
 import Cabecalho from '../components/Cabecalho.jsx';
-import { avaliacoes as avaliacoesMock } from '../data/avaliacoes.js';
 import { apiFetch, limparSessao, obterUsuarioLogado } from '../lib/api.js';
 import { normalizarDetalheAvaliacao, normalizarListaAvaliacoes } from '../lib/avaliacoes.js';
 import { exportarAvaliacaoPdf } from '../lib/exportarRelatorio.js';
@@ -46,19 +45,13 @@ export default function Dashboard() {
                 const resposta = await apiFetch('/api/avaliacoes');
                 const lista = Array.isArray(resposta?.avaliacoes) ? resposta.avaliacoes : [];
                 if (ativo) {
-                    const reais = normalizarListaAvaliacoes(lista);
-                    setAvaliacoes(administrador ? combinarComDemonstracao(reais) : reais);
+                    setAvaliacoes(normalizarListaAvaliacoes(lista));
                 }
             } catch (error) {
                 if (!ativo) return;
 
-                if (administrador) {
-                    setAvaliacoes(normalizarListaAvaliacoes(avaliacoesMock, avaliacoesMock));
-                    setMensagem('API indisponível. Exibindo dados administrativos de demonstração.');
-                } else {
-                    setAvaliacoes([]);
-                    setMensagem('');
-                }
+                setAvaliacoes([]);
+                setMensagem('Não foi possível carregar as avaliações. Tente novamente mais tarde.');
             } finally {
                 if (ativo) setCarregando(false);
             }
@@ -508,16 +501,6 @@ function normalizarTexto(valor) {
     return String(valor || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
 }
 
-function combinarComDemonstracao(reais) {
-    const idsReais = new Set(reais.map((item) => String(item.id)));
-    const demonstracao = normalizarListaAvaliacoes(
-        avaliacoesMock.map((item) => ({ ...item, id: `demo-${item.id}`, demonstracao: true })),
-        avaliacoesMock
-    ).filter((item) => !idsReais.has(String(item.id)));
-
-    return [...reais, ...demonstracao];
-}
-
 function obterNota(item) {
     return Number(String(item.notaGeral || 0).replace(',', '.')) || 0;
 }
@@ -765,7 +748,7 @@ function Nota({ valor }) {
 }
 
 function Classificacao({ avaliacao }) {
-    return <span className="mt-2 inline-flex items-center gap-1.5 rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-bold uppercase text-slate-600">{avaliacao.classificacao}{avaliacao.demonstracao && <span className="text-blue-700">· Demonstração</span>}</span>;
+    return <span className="mt-2 inline-flex items-center gap-1.5 rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-bold uppercase text-slate-600">{avaliacao.classificacao}</span>;
 }
 
 function Acao({ icone, titulo, onClick }) {
