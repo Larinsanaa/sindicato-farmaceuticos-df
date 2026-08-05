@@ -1,8 +1,8 @@
-# Sindicato Farmacêuticos DF
+# Sincofarma-DF
 
 ## Objetivo do projeto
 
-Este projeto é uma aplicação web para apoiar o Sindicato dos Farmacêuticos do DF no acompanhamento, cadastro e análise de avaliações de farmácias e drogarias.
+Este projeto é uma aplicação web para apoiar o Sincofarma-DF no acompanhamento, cadastro e análise de avaliações de farmácias e drogarias.
 
 A plataforma foi pensada para:
 
