@@ -21,6 +21,19 @@ function escaparHtml(valor) {
     .replaceAll("'", '&#039;');
 }
 
+// Cor conforme a nota: vermelho (crítico), âmbar (atenção), verde (bom).
+function corPorNota(nota) {
+  const numero = Number(nota) || 0;
+  if (numero <= 2) return '#dc2626';
+  if (numero < 4) return '#d97706';
+  return '#16a34a';
+}
+
+function estrelasHtml(nota) {
+  const cheias = Math.max(0, Math.min(5, Number(nota) || 0));
+  return `<span style="color:#f59e0b;letter-spacing:2px;">${'★'.repeat(cheias)}</span><span style="color:#cbd5e1;letter-spacing:2px;">${'★'.repeat(5 - cheias)}</span>`;
+}
+
 function montarHtmlRelatorio(avaliacao, respostas) {
   const porSecao = new Map();
   (respostas || []).forEach((item) => {
@@ -31,16 +44,20 @@ function montarHtmlRelatorio(avaliacao, respostas) {
 
   const blocosSecoes = [...porSecao.entries()].map(([secao, itens]) => {
     const media = itens.reduce((soma, item) => soma + Number(item.valor || 0), 0) / itens.length;
-    const linhas = itens.map((item) => `
+    const linhas = itens.map((item) => {
+      const nota = Number(item.valor) || 0;
+      return `
       <tr>
         <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;">${escaparHtml(item.pergunta)}</td>
-        <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;text-align:right;font-weight:bold;color:#071d49;">${Number(item.valor) || '-'} / 5</td>
+        <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;text-align:right;white-space:nowrap;">${estrelasHtml(nota)}</td>
+        <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;text-align:right;font-weight:bold;color:${corPorNota(nota)};">${nota || '-'}</td>
       </tr>
-    `).join('');
+    `;
+    }).join('');
 
     return `
       <h3 style="margin:18px 0 6px;color:#1d4ed8;font-size:13px;text-transform:uppercase;letter-spacing:.04em;">
-        ${escaparHtml(secao)} — média ${formatarNota(media)}
+        ${escaparHtml(secao)} — <span style="color:${corPorNota(media)};">média ${formatarNota(media)}</span>
       </h3>
       <table style="width:100%;border-collapse:collapse;font-size:13px;color:#0f172a;">
         ${linhas}
@@ -48,15 +65,20 @@ function montarHtmlRelatorio(avaliacao, respostas) {
     `;
   }).join('');
 
+  const nomeAvaliador = avaliacao.avaliador?.nome || 'Não identificado';
+  const cidadeUf = [avaliacao.cidade, avaliacao.estado].filter(Boolean).join(' - ');
+
   return `
   <div style="font-family:Arial,Helvetica,sans-serif;max-width:640px;margin:0 auto;color:#0f172a;">
     <div style="height:6px;background:linear-gradient(90deg,#082f68,#1d4ed8,#b08d18);border-radius:999px;margin-bottom:16px;"></div>
     <p style="margin:0;color:#1d4ed8;font-size:11px;font-weight:bold;text-transform:uppercase;letter-spacing:.08em;">Sincofarma-DF</p>
-    <h1 style="margin:6px 0 4px;color:#071d49;font-size:22px;">Relatório de Avaliação</h1>
+    <h1 style="margin:6px 0 4px;color:#071d49;font-size:22px;">Relatório de Avaliação — ${escaparHtml(avaliacao.farmacia)}</h1>
     <p style="margin:2px 0;color:#475569;font-size:13px;"><strong>Farmácia:</strong> ${escaparHtml(avaliacao.farmacia)}</p>
     <p style="margin:2px 0;color:#475569;font-size:13px;"><strong>CNPJ:</strong> ${escaparHtml(avaliacao.cnpj)}</p>
     <p style="margin:2px 0;color:#475569;font-size:13px;"><strong>Endereço:</strong> ${escaparHtml(avaliacao.endereco)}</p>
-    <p style="margin:2px 0 12px;color:#475569;font-size:13px;"><strong>Data:</strong> ${new Date(avaliacao.created_at).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}</p>
+    ${cidadeUf ? `<p style="margin:2px 0;color:#475569;font-size:13px;"><strong>Cidade:</strong> ${escaparHtml(cidadeUf)}</p>` : ''}
+    <p style="margin:2px 0;color:#475569;font-size:13px;"><strong>Avaliador:</strong> ${escaparHtml(nomeAvaliador)}</p>
+    <p style="margin:2px 0 12px;color:#475569;font-size:13px;"><strong>Data da avaliação:</strong> ${new Date(avaliacao.created_at).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}</p>
 
     <div style="border:1px solid #bfdbfe;background:#eff6ff;border-radius:12px;padding:14px;text-align:center;margin-bottom:14px;">
       <span style="display:block;color:#475569;font-size:11px;font-weight:bold;text-transform:uppercase;">Nota geral</span>
@@ -98,14 +120,15 @@ class EmailService {
       service: 'gmail',
       auth: {
         user: process.env.EMAIL_REMETENTE.trim(),
-        pass: process.env.EMAIL_SENHA_APP.trim()
+        // Senha de app do Google: remove os espaços do formato "abcd efgh ijkl mnop".
+        pass: process.env.EMAIL_SENHA_APP.replace(/\s+/g, '')
       }
     });
 
     await transporter.sendMail({
       from: `"Sistema Sincofarma-DF" <${process.env.EMAIL_REMETENTE.trim()}>`,
       to: process.env.EMAIL_DESTINATARIO.trim(),
-      subject: `Relatório de avaliação — ${avaliacao.farmacia} (nota ${formatarNota(avaliacao.nota_geral)})`,
+      subject: `Relatório de avaliação — ${avaliacao.farmacia} — nota ${formatarNota(avaliacao.nota_geral)} (${avaliacao.classificacao || 'sem classificação'})`,
       html: montarHtmlRelatorio(avaliacao, respostas)
     });
 
