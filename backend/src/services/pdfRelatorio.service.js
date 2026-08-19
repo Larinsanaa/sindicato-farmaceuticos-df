@@ -22,13 +22,17 @@ function corPorNota(nota) {
   return '#16a34a';
 }
 
+// Estrelas desenhadas em SVG: a fonte Roboto do pdfmake não tem o glifo "★",
+// então o caractere viraria um quadrado no PDF.
 function estrelas(nota) {
   const cheias = Math.max(0, Math.min(5, Number(nota) || 0));
+  const desenho = (indice, cor) =>
+    `<path transform="translate(${indice * 13},0)" fill="${cor}" `
+    + 'd="M6 .5l1.55 3.35 3.65.4-2.7 2.5.75 3.6L6 8.55l-3.25 1.8.75-3.6-2.7-2.5 3.65-.4z"/>';
+  const caminhos = Array.from({ length: 5 }, (_, i) => desenho(i, i < cheias ? '#f59e0b' : '#cbd5e1')).join('');
   return {
-    text: [
-      { text: '★'.repeat(cheias), color: '#f59e0b' },
-      { text: '★'.repeat(5 - cheias), color: '#cbd5e1' }
-    ]
+    svg: `<svg width="63" height="11" viewBox="0 0 63 11" xmlns="http://www.w3.org/2000/svg">${caminhos}</svg>`,
+    width: 63
   };
 }
 
@@ -59,7 +63,7 @@ export async function gerarPdfRelatorio(avaliacao, respostas) {
             const nota = Number(item.valor) || 0;
             return [
               { text: item.pergunta, fontSize: 9.5, color: '#0f172a', margin: [0, 3, 0, 3] },
-              { ...estrelas(nota), fontSize: 9.5, alignment: 'right', margin: [0, 3, 0, 3] },
+              { ...estrelas(nota), alignment: 'right', margin: [0, 4, 0, 3] },
               { text: String(nota || '-'), bold: true, fontSize: 9.5, alignment: 'right', color: corPorNota(nota), margin: [0, 3, 0, 3] }
             ];
           })
