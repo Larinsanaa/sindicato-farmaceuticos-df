@@ -55,9 +55,9 @@ export function criarRelatorioFinal({ secoes, respostas, observacoesSecoes, farm
 
     return {
         id: `rel-${Date.now()}`,
-        farmacia: farmacia?.nome || 'Mais Farma',
-        cnpj: farmacia?.cnpj || '05.123.456/0001-89',
-        endereco: farmacia?.endereco || 'R. das Farmácias, 123, Centro, Cidade',
+        farmacia: farmacia?.nome || 'Farmácia não informada',
+        cnpj: farmacia?.cnpj || '-',
+        endereco: farmacia?.endereco || '-',
         mediaGeral,
         mediaGeralTexto: formatarNota(mediaGeral),
         classificacao,
@@ -84,55 +84,6 @@ export function carregarRelatorioFinal() {
     } catch {
         return null;
     }
-}
-
-export function criarRelatorioExemplo() {
-    return {
-        id: 'rel-exemplo',
-        farmacia: 'Mais Farma',
-        cnpj: '05.123.456/0001-89',
-        endereco: 'R. das Farmácias, 123, Centro, Cidade',
-        mediaGeral: 3.5,
-        mediaGeralTexto: '3,5',
-        classificacao: 'Bom',
-        resumo: 'O estabelecimento apresenta boa organização, mas algumas áreas precisam de atenção.',
-        criadoEm: new Date().toISOString(),
-        secoes: [
-            {
-                titulo: 'Letreiro',
-                media: 4,
-                mediaTexto: '4,0',
-                observacao: 'Boa visibilidade na fachada.',
-                perguntas: [
-                    { pergunta: 'Apresentação', nota: 4 },
-                    { pergunta: 'Manutenção', nota: 4 },
-                    { pergunta: 'Iluminação', nota: 4 }
-                ]
-            },
-            {
-                titulo: 'Loja',
-                media: 3.3,
-                mediaTexto: '3,3',
-                observacao: 'Atenção à organização do espaço interno.',
-                perguntas: [
-                    { pergunta: 'Limpeza', nota: 4 },
-                    { pergunta: 'Iluminação', nota: 3 },
-                    { pergunta: 'Layout', nota: 3 },
-                    { pergunta: 'Comunicação visual', nota: 3 }
-                ]
-            }
-        ],
-        problemas: [
-            {
-                titulo: 'Estoque desorganizado',
-                detalhe: 'Alguns produtos e prateleiras precisam de reorganização.'
-            },
-            {
-                titulo: 'Iluminação fraca',
-                detalhe: 'A iluminação no balcão precisa de reforço.'
-            }
-        ]
-    };
 }
 
 function calcularMedia(valores) {

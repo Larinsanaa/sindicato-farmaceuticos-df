@@ -1,17 +1,23 @@
 ﻿import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Navigate, useNavigate } from 'react-router-dom';
 import { ArrowLeft, CheckCircle2, ClipboardList, Eye, Loader2, Send, Star, TriangleAlert, X } from 'lucide-react';
 import Cabecalho from '../../components/Cabecalho.jsx';
 import { apiFetch } from '../../lib/api.js';
-import { carregarRelatorioFinal, criarRelatorioExemplo } from '../../lib/relatorioFinal.js';
+import { carregarRelatorioFinal } from '../../lib/relatorioFinal.js';
 
 export default function RelatorioFinalAvaliacao() {
     const navigate = useNavigate();
-    const relatorio = useMemo(() => carregarRelatorioFinal() || criarRelatorioExemplo(), []);
-    const corMedidor = corPorMedia(relatorio.mediaGeral);
-    const destaques = useMemo(() => gerarDestaques(relatorio), [relatorio]);
+    const relatorio = useMemo(() => carregarRelatorioFinal(), []);
     const [enviandoEmail, setEnviandoEmail] = useState(false);
     const [avisoEmail, setAvisoEmail] = useState({ texto: '', tipo: '' });
+
+    // Sem relatório salvo (ex.: acesso direto pela URL) volta pro dashboard.
+    if (!relatorio) {
+        return <Navigate to="/dashboard" replace />;
+    }
+
+    const corMedidor = corPorMedia(relatorio.mediaGeral);
+    const destaques = gerarDestaques(relatorio);
 
     function fecharRelatorio() {
         navigate('/dashboard');

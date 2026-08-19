@@ -28,6 +28,13 @@ export function validarAvaliacao(body) {
     return { valid: false, error: 'E necessario enviar pelo menos uma resposta valida.' };
   }
 
+  // Todas as estrelas sao obrigatorias: se alguma pergunta veio sem nota valida
+  // (1 a 5), a avaliacao inteira e rejeitada em vez de descartar o item.
+  const totalEnviado = Array.isArray(respostas) ? respostas.length : Object.keys(respostas).length;
+  if (normalized.length !== totalEnviado) {
+    return { valid: false, error: 'Todas as perguntas devem ser avaliadas com nota de 1 a 5 estrelas.' };
+  }
+
   return {
     valid: true,
     respostas: normalized,

@@ -45,37 +45,64 @@ export async function gerarPdfRelatorio(avaliacao, respostas) {
     porSecao.get(secao).push(item);
   });
 
-  const blocosSecoes = [...porSecao.entries()].flatMap(([secao, itens]) => {
+  // Questionário em cards de 2 colunas (mesmo visual da tela de relatório).
+  const cartoes = [...porSecao.entries()].map(([secao, itens]) => {
     const media = itens.reduce((soma, item) => soma + Number(item.valor || 0), 0) / itens.length;
 
-    return [
-      {
-        margin: [0, 10, 0, 4],
-        columns: [
-          { text: secao.toUpperCase(), bold: true, fontSize: 10, color: AZUL_ESCURO, characterSpacing: 0.4 },
-          { text: `média ${formatarNota(media)}`, alignment: 'right', bold: true, fontSize: 9, color: corPorNota(media) }
-        ]
+    return {
+      width: '*',
+      unbreakable: true,
+      table: {
+        widths: ['*'],
+        body: [[{
+          fillColor: '#f8fafc',
+          margin: [10, 8, 10, 8],
+          stack: [
+            {
+              columns: [
+                { text: secao.toUpperCase(), bold: true, fontSize: 9.5, color: AZUL_ESCURO, characterSpacing: 0.4 },
+                { text: `média ${formatarNota(media)}`, alignment: 'right', bold: true, fontSize: 8.5, color: corPorNota(media) }
+              ],
+              margin: [0, 0, 0, 6]
+            },
+            {
+              table: {
+                widths: ['*', 'auto', 14],
+                body: itens.map((item) => {
+                  const nota = Number(item.valor) || 0;
+                  return [
+                    { text: item.pergunta, fontSize: 9, color: '#0f172a', margin: [0, 3, 0, 3] },
+                    { ...estrelas(nota), alignment: 'right', margin: [0, 4, 0, 3] },
+                    { text: String(nota || '-'), bold: true, fontSize: 9, alignment: 'right', color: corPorNota(nota), margin: [0, 3, 0, 3] }
+                  ];
+                })
+              },
+              layout: {
+                hLineWidth: (i) => (i === 0 ? 0.7 : i === itens.length ? 0 : 0.5),
+                vLineWidth: () => 0,
+                hLineColor: () => '#e2e8f0'
+              }
+            }
+          ]
+        }]]
       },
-      {
-        table: {
-          widths: ['*', 'auto', 22],
-          body: itens.map((item) => {
-            const nota = Number(item.valor) || 0;
-            return [
-              { text: item.pergunta, fontSize: 9.5, color: '#0f172a', margin: [0, 3, 0, 3] },
-              { ...estrelas(nota), alignment: 'right', margin: [0, 4, 0, 3] },
-              { text: String(nota || '-'), bold: true, fontSize: 9.5, alignment: 'right', color: corPorNota(nota), margin: [0, 3, 0, 3] }
-            ];
-          })
-        },
-        layout: {
-          hLineWidth: (i, node) => (i === 0 || i === node.table.body.length ? 0 : 0.5),
-          vLineWidth: () => 0,
-          hLineColor: () => '#e2e8f0'
-        }
+      layout: {
+        hLineWidth: () => 1,
+        vLineWidth: () => 1,
+        hLineColor: () => '#e2e8f0',
+        vLineColor: () => '#e2e8f0'
       }
-    ];
+    };
   });
+
+  const blocosSecoes = [];
+  for (let i = 0; i < cartoes.length; i += 2) {
+    blocosSecoes.push({
+      columns: [cartoes[i], cartoes[i + 1] || { width: '*', text: '' }],
+      columnGap: 10,
+      margin: [0, 8, 0, 0]
+    });
+  }
 
   const nomeAvaliador = avaliacao.avaliador?.nome || 'Não identificado';
   const cidadeUf = [avaliacao.cidade, avaliacao.estado].filter(Boolean).join(' - ');
