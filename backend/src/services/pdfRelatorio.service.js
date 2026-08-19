@@ -104,6 +104,63 @@ export async function gerarPdfRelatorio(avaliacao, respostas) {
     });
   }
 
+  // Problemas identificados: seções com média baixa e itens com 2 estrelas ou menos
+  // (mesma regra do relatório exibido na tela).
+  const problemas = [];
+  porSecao.forEach((itens, secao) => {
+    const media = itens.reduce((soma, item) => soma + Number(item.valor || 0), 0) / itens.length;
+    if (media < 3) {
+      problemas.push({ titulo: `${secao} precisa de atenção`, detalhe: `A média da seção ficou em ${formatarNota(media)}.` });
+    }
+  });
+  (respostas || []).forEach((item) => {
+    const nota = Number(item.valor) || 0;
+    if (nota >= 1 && nota <= 2) {
+      problemas.push({ titulo: `${item.secao} — ${item.pergunta}`, detalhe: `Item avaliado com nota ${nota} de 5.` });
+    }
+  });
+
+  const blocoProblemas = problemas.length
+    ? problemas.map((problema, indice) => ({
+      table: {
+        widths: ['*'],
+        body: [[{
+          fillColor: '#fef2f2',
+          margin: [10, 6, 10, 6],
+          stack: [
+            { text: problema.titulo, bold: true, fontSize: 9.5, color: '#991b1b' },
+            { text: problema.detalhe, fontSize: 9, color: '#b91c1c', margin: [0, 2, 0, 0] }
+          ]
+        }]]
+      },
+      layout: {
+        hLineWidth: () => 1,
+        vLineWidth: () => 1,
+        hLineColor: () => '#fecaca',
+        vLineColor: () => '#fecaca'
+      },
+      margin: [0, indice === 0 ? 4 : 4, 0, 0]
+    }))
+    : [{
+      table: {
+        widths: ['*'],
+        body: [[{
+          fillColor: '#f0fdf4',
+          margin: [10, 6, 10, 6],
+          text: 'Nenhum ponto crítico identificado — nenhum item recebeu nota baixa nesta avaliação.',
+          fontSize: 9.5,
+          color: '#166534'
+        }]]
+      },
+      layout: {
+        hLineWidth: () => 1,
+        vLineWidth: () => 1,
+        hLineColor: () => '#bbf7d0',
+        vLineColor: () => '#bbf7d0'
+      },
+      margin: [0, 4, 0, 0]
+    }];
+
   const nomeAvaliador = avaliacao.avaliador?.nome || 'Não identificado';
   const cidadeUf = [avaliacao.cidade, avaliacao.estado].filter(Boolean).join(' - ');
   const dataAvaliacao = new Date(avaliacao.created_at).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
@@ -162,6 +219,8 @@ export async function gerarPdfRelatorio(avaliacao, respostas) {
         { text: 'Observações do avaliador', bold: true, fontSize: 12, color: AZUL_ESCURO, margin: [0, 12, 0, 4] },
         { text: avaliacao.observacao, fontSize: 9.5, color: CINZA, lineHeight: 1.3 }
       ] : []),
+      { text: 'Problemas identificados', bold: true, fontSize: 12, color: AZUL_ESCURO, margin: [0, 14, 0, 0] },
+      ...blocoProblemas,
       { text: 'Questionário completo', bold: true, fontSize: 12, color: AZUL_ESCURO, margin: [0, 16, 0, 0] },
       { text: 'Cada item foi avaliado de 1 a 5 estrelas pelo avaliador.', fontSize: 8.5, color: CINZA_CLARO, margin: [0, 2, 0, 2] },
       ...blocosSecoes
