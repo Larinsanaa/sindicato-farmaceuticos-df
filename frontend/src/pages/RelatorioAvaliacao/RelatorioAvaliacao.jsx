@@ -1,6 +1,6 @@
 ﻿import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, Download, Loader2, Send, Star } from 'lucide-react';
+import { ArrowLeft, Eye, Loader2, Send, Star } from 'lucide-react';
 import Cabecalho from '../../components/Cabecalho.jsx';
 import { apiFetch } from '../../lib/api.js';
 import { normalizarDetalheAvaliacao } from '../../lib/avaliacoes.js';
@@ -13,6 +13,8 @@ export default function RelatorioAvaliacao() {
     const [erro, setErro] = useState('');
     const [avaliacao, setAvaliacao] = useState(null);
     const [erroExportar, setErroExportar] = useState('');
+    const [enviandoEmail, setEnviandoEmail] = useState(false);
+    const [avisoEmail, setAvisoEmail] = useState({ texto: '', tipo: '' });
 
     function exportar() {
         try {
@@ -20,6 +22,20 @@ export default function RelatorioAvaliacao() {
             exportarAvaliacaoPdf(avaliacao);
         } catch (error) {
             setErroExportar(error.message);
+        }
+    }
+
+    async function enviarPorEmail() {
+        setEnviandoEmail(true);
+        setAvisoEmail({ texto: '', tipo: '' });
+
+        try {
+            const resposta = await apiFetch(`/api/avaliacoes/${id}/enviar-email`, { method: 'POST' });
+            setAvisoEmail({ texto: resposta?.message || 'Relatório enviado por e-mail.', tipo: 'sucesso' });
+        } catch (error) {
+            setAvisoEmail({ texto: error.message || 'Não foi possível enviar o e-mail.', tipo: 'erro' });
+        } finally {
+            setEnviandoEmail(false);
         }
     }
 
@@ -134,13 +150,24 @@ export default function RelatorioAvaliacao() {
 
                     <div className="mt-5 grid gap-3">
                         <button className="flex h-12 items-center justify-center gap-2 rounded-md bg-blue-700 text-sm font-extrabold text-white hover:bg-blue-800" type="button" onClick={exportar}>
-                            <Download className="h-5 w-5" />
-                            Exportar relatório
+                            <Eye className="h-5 w-5" />
+                            Visualizar relatório
                         </button>
-                        <button className="flex h-12 items-center justify-center gap-2 rounded-md border border-slate-200 text-sm font-extrabold text-blue-700 hover:border-sky-300" type="button">
-                            <Send className="h-5 w-5" />
-                            Reenviar relatório
+                        <button
+                            className="flex h-12 items-center justify-center gap-2 rounded-md border border-slate-200 text-sm font-extrabold text-blue-700 hover:border-sky-300 disabled:cursor-not-allowed disabled:opacity-70"
+                            type="button"
+                            onClick={enviarPorEmail}
+                            disabled={enviandoEmail}
+                        >
+                            {enviandoEmail ? <Loader2 className="h-5 w-5 animate-spin" /> : <Send className="h-5 w-5" />}
+                            {enviandoEmail ? 'Enviando...' : 'Enviar por e-mail'}
                         </button>
+
+                        {avisoEmail.texto && (
+                            <div className={`rounded-lg border p-3 text-sm font-semibold ${avisoEmail.tipo === 'sucesso' ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-red-200 bg-red-50 text-red-700'}`}>
+                                {avisoEmail.texto}
+                            </div>
+                        )}
                     </div>
                 </section>
             </div>

@@ -19,39 +19,24 @@ export function classificarNota(valor) {
     return 'Crítico';
 }
 
-// Converte as respostas por emoji (1=Ótimo, 2=Regular, 3=Ruim) pra escala de 5.
-const NOTA_POR_EMOJI = { 1: 5, 2: 3, 3: 1 };
-
-export function notaPorEmojis(valores) {
+// Nota da seção: média das estrelas (1 a 5) dadas aos itens.
+export function calcularNotaSecao(valores) {
     const notas = (valores || [])
-        .map((valor) => NOTA_POR_EMOJI[Number(valor)])
-        .filter(Boolean);
+        .map((valor) => Number(valor))
+        .filter((valor) => valor >= 1 && valor <= 5);
 
     if (notas.length === 0) return 0;
-    return notas.reduce((soma, nota) => soma + nota, 0) / notas.length;
+    return Number((notas.reduce((soma, nota) => soma + nota, 0) / notas.length).toFixed(1));
 }
 
-// Nota final da seção: média entre a nota das estrelas e a nota derivada
-// dos emojis, pra que as respostas por item também pesem no resultado.
-export function calcularNotaSecao(notaEstrelas, valoresEmojis) {
-    const estrelas = Number(notaEstrelas) || 0;
-    const emojis = notaPorEmojis(valoresEmojis);
-
-    if (estrelas > 0 && emojis > 0) {
-        return Number(((estrelas + emojis) / 2).toFixed(1));
-    }
-
-    return Number((estrelas || emojis).toFixed(1));
-}
-
-export function criarRelatorioFinal({ secoes, respostas, notasSecao, observacoesSecoes, farmacia }) {
+export function criarRelatorioFinal({ secoes, respostas, observacoesSecoes, farmacia }) {
     const secoesDetalhadas = secoes.map((secao, secaoIndex) => {
         const perguntas = secao.perguntas.map((pergunta, perguntaIndex) => {
             const nota = Number(respostas[`${secaoIndex}-${perguntaIndex}`] || 0);
             return { pergunta, nota };
         });
 
-        const media = calcularNotaSecao(notasSecao?.[secaoIndex], perguntas.map((item) => item.nota));
+        const media = calcularNotaSecao(perguntas.map((item) => item.nota));
 
         return {
             titulo: secao.titulo,
@@ -119,9 +104,9 @@ export function criarRelatorioExemplo() {
                 mediaTexto: '4,0',
                 observacao: 'Boa visibilidade na fachada.',
                 perguntas: [
-                    { pergunta: 'Apresentação', nota: 1 },
-                    { pergunta: 'Manutenção', nota: 1 },
-                    { pergunta: 'Iluminação', nota: 1 }
+                    { pergunta: 'Apresentação', nota: 4 },
+                    { pergunta: 'Manutenção', nota: 4 },
+                    { pergunta: 'Iluminação', nota: 4 }
                 ]
             },
             {
@@ -130,10 +115,10 @@ export function criarRelatorioExemplo() {
                 mediaTexto: '3,3',
                 observacao: 'Atenção à organização do espaço interno.',
                 perguntas: [
-                    { pergunta: 'Limpeza', nota: 1 },
-                    { pergunta: 'Iluminação', nota: 2 },
-                    { pergunta: 'Layout', nota: 2 },
-                    { pergunta: 'Comunicação visual', nota: 2 }
+                    { pergunta: 'Limpeza', nota: 4 },
+                    { pergunta: 'Iluminação', nota: 3 },
+                    { pergunta: 'Layout', nota: 3 },
+                    { pergunta: 'Comunicação visual', nota: 3 }
                 ]
             }
         ],
@@ -189,10 +174,10 @@ function gerarProblemas(secoes) {
         }
 
         secao.perguntas.forEach((item) => {
-            if (item.nota === 3) {
+            if (item.nota > 0 && item.nota <= 2) {
                 problemas.push({
                     titulo: `${secao.titulo} - ${item.pergunta}`,
-                    detalhe: 'Avaliação baixa registrada nesta pergunta.'
+                    detalhe: `Item avaliado com nota ${item.nota} de 5.`
                 });
             }
         });

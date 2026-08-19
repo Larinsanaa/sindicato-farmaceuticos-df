@@ -88,7 +88,7 @@ export function normalizeRespostas(respostas) {
         item.pergunta &&
         Number.isInteger(item.valor) &&
         item.valor >= 1 &&
-        item.valor <= 3
+        item.valor <= 5
       ));
   }
 
@@ -113,7 +113,7 @@ export function normalizeRespostas(respostas) {
       item &&
       Number.isInteger(item.valor) &&
       item.valor >= 1 &&
-      item.valor <= 3
+      item.valor <= 5
     ));
 }
 
@@ -151,22 +151,15 @@ export function processarRespostas(respostas, notasSecao = [], notaGeralInformad
   };
 }
 
-// Converte a média das respostas por emoji (1=Ótimo, 2=Regular, 3=Ruim)
-// para a escala de nota de 1 a 5.
-function notaPelaMediaEmoji(mediaEmoji) {
-  return ((3 - mediaEmoji) / 2) * 4 + 1;
-}
-
+// As respostas já vêm na escala de estrelas (1 a 5) — a nota é a média direta.
 function calcularNotaPelasRespostas(respostas) {
   const totalRespostas = respostas.length;
-  const somaValores = respostas.reduce((sum, item) => sum + item.valor, 0);
-  const mediaEmoji = totalRespostas > 0 ? somaValores / totalRespostas : 0;
 
-  if (!mediaEmoji) {
+  if (totalRespostas === 0) {
     return 0;
   }
 
-  return notaPelaMediaEmoji(mediaEmoji);
+  return respostas.reduce((sum, item) => sum + item.valor, 0) / totalRespostas;
 }
 
 function formatarNotaTexto(nota) {
@@ -185,7 +178,7 @@ function gerarResumoExecutivo(respostas, notaGeral, classificacao) {
 
   const secoes = [...porSecao.entries()].map(([secao, valores]) => {
     const media = valores.reduce((soma, valor) => soma + valor, 0) / valores.length;
-    return { secao, nota: notaPelaMediaEmoji(media) };
+    return { secao, nota: media };
   });
 
   const aberturas = {
@@ -211,13 +204,13 @@ function gerarResumoExecutivo(respostas, notaGeral, classificacao) {
     }
   }
 
-  const itensCriticos = respostas.filter((item) => Number(item.valor) === 3).length;
+  const itensCriticos = respostas.filter((item) => Number(item.valor) <= 2).length;
   if (itensCriticos > 0) {
     frases.push(itensCriticos === 1
-      ? '1 item recebeu avaliação "Ruim" e demanda ação corretiva prioritária.'
-      : `${itensCriticos} itens receberam avaliação "Ruim" e demandam ação corretiva prioritária.`);
+      ? '1 item recebeu nota baixa (2 estrelas ou menos) e demanda ação corretiva prioritária.'
+      : `${itensCriticos} itens receberam nota baixa (2 estrelas ou menos) e demandam ação corretiva prioritária.`);
   } else {
-    frases.push('Nenhum item recebeu avaliação "Ruim" durante a verificação.');
+    frases.push('Nenhum item recebeu nota baixa durante a verificação.');
   }
 
   return frases.join(' ');

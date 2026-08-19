@@ -1,7 +1,8 @@
-﻿import { useMemo } from 'react';
+﻿import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, CheckCircle2, ClipboardList, FileDown, Star, TriangleAlert, X } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, ClipboardList, Eye, Loader2, Send, Star, TriangleAlert, X } from 'lucide-react';
 import Cabecalho from '../../components/Cabecalho.jsx';
+import { apiFetch } from '../../lib/api.js';
 import { carregarRelatorioFinal, criarRelatorioExemplo } from '../../lib/relatorioFinal.js';
 
 export default function RelatorioFinalAvaliacao() {
@@ -9,9 +10,32 @@ export default function RelatorioFinalAvaliacao() {
     const relatorio = useMemo(() => carregarRelatorioFinal() || criarRelatorioExemplo(), []);
     const corMedidor = corPorMedia(relatorio.mediaGeral);
     const destaques = useMemo(() => gerarDestaques(relatorio), [relatorio]);
+    const [enviandoEmail, setEnviandoEmail] = useState(false);
+    const [avisoEmail, setAvisoEmail] = useState({ texto: '', tipo: '' });
 
     function fecharRelatorio() {
         navigate('/dashboard');
+    }
+
+    async function enviarPorEmail() {
+        const idSalvo = String(relatorio.id || '');
+
+        if (!idSalvo || idSalvo.startsWith('rel-')) {
+            setAvisoEmail({ texto: 'Esta avaliação ainda não foi salva no sistema — não é possível enviar por e-mail.', tipo: 'erro' });
+            return;
+        }
+
+        setEnviandoEmail(true);
+        setAvisoEmail({ texto: '', tipo: '' });
+
+        try {
+            const resposta = await apiFetch(`/api/avaliacoes/${idSalvo}/enviar-email`, { method: 'POST' });
+            setAvisoEmail({ texto: resposta?.message || 'Relatório enviado por e-mail.', tipo: 'sucesso' });
+        } catch (error) {
+            setAvisoEmail({ texto: error.message || 'Não foi possível enviar o e-mail.', tipo: 'erro' });
+        } finally {
+            setEnviandoEmail(false);
+        }
     }
 
     function exportarPdf() {
@@ -63,8 +87,17 @@ export default function RelatorioFinalAvaliacao() {
                                 type="button"
                                 onClick={exportarPdf}
                             >
-                                <FileDown className="h-4 w-4" />
-                                Exportar PDF
+                                <Eye className="h-4 w-4" />
+                                Visualizar relatório
+                            </button>
+                            <button
+                                className="flex h-11 items-center justify-center gap-2 rounded-md border border-slate-200 bg-white px-4 text-sm font-extrabold text-blue-700 hover:border-sky-300 disabled:cursor-not-allowed disabled:opacity-70"
+                                type="button"
+                                onClick={enviarPorEmail}
+                                disabled={enviandoEmail}
+                            >
+                                {enviandoEmail ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                                {enviandoEmail ? 'Enviando...' : 'Enviar por e-mail'}
                             </button>
                             <button
                                 className="flex h-11 items-center justify-center gap-2 rounded-md bg-blue-700 px-4 text-sm font-extrabold text-white hover:bg-blue-800"
@@ -76,6 +109,12 @@ export default function RelatorioFinalAvaliacao() {
                             </button>
                         </div>
                     </div>
+
+                    {avisoEmail.texto && (
+                        <div className={`mt-3 rounded-lg border p-3 text-sm font-semibold ${avisoEmail.tipo === 'sucesso' ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-red-200 bg-red-50 text-red-700'}`}>
+                            {avisoEmail.texto}
+                        </div>
+                    )}
 
                     <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_360px] lg:items-stretch">
                         <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 sm:p-5">
@@ -394,6 +433,47 @@ function montarHtmlPdf(relatorio, destaques) {
         `)
         .join('');
 
+    // Questionário completo: cada item avaliado com a nota em estrelas,
+    // agrupado por seção — pedido do cliente pra não ficar resumido.
+    const questionario = (relatorio.secoes || [])
+        .map((secao) => {
+            const linhas = (secao.perguntas || [])
+                .map((item) => {
+                    const nota = Math.max(0, Math.min(5, Number(item.nota) || 0));
+                    const percentual = percentualPorMedia(nota);
+
+                    return `
+                    <tr>
+                        <td>${escapeHtml(item.pergunta)}</td>
+                        <td class="score">${nota} / 5</td>
+                        <td>
+                            <div class="progress" aria-hidden="true">
+                                <span style="width:${percentual}%"></span>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+                })
+                .join('');
+
+            if (!linhas) return '';
+
+            return `
+            <h3 class="secao-titulo">${escapeHtml(secao.titulo)} — média ${escapeHtml(secao.mediaTexto)}</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Item avaliado</th>
+                        <th>Nota</th>
+                        <th>Indicador</th>
+                    </tr>
+                </thead>
+                <tbody>${linhas}</tbody>
+            </table>
+        `;
+        })
+        .join('');
+
     return `
 <!doctype html>
 <html lang="pt-BR">
@@ -657,6 +737,14 @@ function montarHtmlPdf(relatorio, destaques) {
             text-align: center;
         }
 
+        .secao-titulo {
+            margin: 14px 0 6px;
+            color: #1d4ed8;
+            font-size: 11px;
+            letter-spacing: .04em;
+            text-transform: uppercase;
+        }
+
         @media print {
             .no-print {
                 display: none !important;
@@ -726,6 +814,12 @@ function montarHtmlPdf(relatorio, destaques) {
                 </tbody>
             </table>
         </section>
+
+        ${questionario ? `
+        <section class="card" style="margin-top:16px;">
+            <h2>Questionário completo</h2>
+            ${questionario}
+        </section>` : ''}
 
         <div class="grid" style="margin-top:16px; grid-template-columns: 1fr 1fr;">
             <section class="card">

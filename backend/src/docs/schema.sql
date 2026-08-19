@@ -43,7 +43,7 @@ create table if not exists resposta (
   avaliacao_id uuid not null references avaliacao (id) on delete cascade,
   secao text not null,
   pergunta text not null,
-  valor integer not null check (valor between 1 and 3),
+  valor integer not null check (valor between 1 and 5), -- estrelas por item
   created_at timestamptz not null default now()
 );
 

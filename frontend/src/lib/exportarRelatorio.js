@@ -39,6 +39,49 @@ export function exportarAvaliacaoPdf(avaliacao, janelaExistente = null) {
         })
         .join('');
 
+    // Questionário completo: todas as perguntas com a nota dada, agrupadas por seção.
+    const respostasPorSecao = (avaliacao.respostas || []).reduce((acc, resposta) => {
+        const secao = resposta.secao || 'Seção';
+        if (!acc.has(secao)) acc.set(secao, []);
+        acc.get(secao).push(resposta);
+        return acc;
+    }, new Map());
+
+    const questionario = [...respostasPorSecao.entries()]
+        .map(([secao, itens]) => {
+            const linhas = itens.map((item) => {
+                const nota = Math.max(0, Math.min(5, Number(item.valor) || 0));
+                const percentual = limitarPercentual(((nota - 1) / 4) * 100);
+
+                return `
+                    <tr>
+                        <td>${escaparHtml(item.pergunta)}</td>
+                        <td class="valor">${nota} / 5</td>
+                        <td>
+                            <div class="barra" aria-hidden="true">
+                                <span style="width:${percentual}%"></span>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+
+            return `
+                <h3 class="secao-titulo">${escaparHtml(secao)}</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Item avaliado</th>
+                            <th class="valor">Nota</th>
+                            <th>Indicador</th>
+                        </tr>
+                    </thead>
+                    <tbody>${linhas}</tbody>
+                </table>
+            `;
+        })
+        .join('');
+
     const dataGeracao = new Date().toLocaleDateString('pt-BR');
     const titulo = avaliacao.farmacia || 'Avaliação';
 
@@ -179,6 +222,13 @@ export function exportarAvaliacaoPdf(avaliacao, janelaExistente = null) {
             font-weight: 800;
             text-align: right;
         }
+        .secao-titulo {
+            margin: 16px 0 6px;
+            color: #1d4ed8;
+            font-size: 12px;
+            letter-spacing: .04em;
+            text-transform: uppercase;
+        }
         .barra {
             height: 9px;
             overflow: hidden;
@@ -260,7 +310,7 @@ export function exportarAvaliacaoPdf(avaliacao, janelaExistente = null) {
                 </div>` : ''}
                 ${Number.isFinite(avaliacao.itensCriticos) ? `
                 <div class="metrica">
-                    <span>Itens com avaliação "Ruim"</span>
+                    <span>Itens com nota baixa</span>
                     <strong>${avaliacao.itensCriticos}</strong>
                 </div>` : ''}
             </div>
@@ -282,6 +332,12 @@ export function exportarAvaliacaoPdf(avaliacao, janelaExistente = null) {
             </table>
         ` : '<p>Não há critérios detalhados disponíveis.</p>'}
     </section>
+
+    ${questionario ? `
+    <section class="card" style="margin-top:14px;">
+        <h2>Questionário completo</h2>
+        ${questionario}
+    </section>` : ''}
 
     <div class="assinatura">
         <div class="linha">Responsável pela avaliação</div>

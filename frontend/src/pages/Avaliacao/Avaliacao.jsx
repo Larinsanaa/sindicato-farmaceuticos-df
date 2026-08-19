@@ -17,15 +17,8 @@ export default function Avaliacao() {
         { titulo: 'Caixa', icone: CreditCard, perguntas: ['Apresentação', 'Atenção', 'Conhecimento'] }
     ], []);
 
-    const emojis = useMemo(() => [
-        { emoji: '😁', texto: 'Ótimo', valor: 1, cor: 'bg-emerald-100 border-emerald-500 text-emerald-700' },
-        { emoji: '😐', texto: 'Regular', valor: 2, cor: 'bg-amber-100 border-amber-500 text-amber-700' },
-        { emoji: '😡', texto: 'Ruim', valor: 3, cor: 'bg-rose-100 border-rose-500 text-rose-700' }
-    ], []);
-
     const [secaoAtual, setSecaoAtual] = useState(0);
     const [respostas, setRespostas] = useState({});
-    const [notasSecao, setNotasSecao] = useState({});
     const [observacoesSecoes, setObservacoesSecoes] = useState({});
     const [salvando, setSalvando] = useState(false);
     const [erroSalvar, setErroSalvar] = useState('');
@@ -33,12 +26,7 @@ export default function Avaliacao() {
 
     function avaliarPergunta(secaoIndex, perguntaIndex, valor) {
         const chave = `${secaoIndex}-${perguntaIndex}`;
-        setRespostas((prev) => ({ ...prev, [chave]: valor }));
-    }
-
-    function avaliarSecao(secaoIndex, valor) {
-        const nota = Math.max(1, Math.min(5, Number(valor)));
-        setNotasSecao((prev) => ({ ...prev, [secaoIndex]: nota }));
+        setRespostas((prev) => ({ ...prev, [chave]: Math.max(1, Math.min(5, Number(valor))) }));
     }
 
     function alterarObservacao(secaoIndex, valor) {
@@ -46,13 +34,12 @@ export default function Avaliacao() {
     }
 
     function secaoCompleta(secaoIndex) {
-        const perguntasRespondidas = secoes[secaoIndex].perguntas.every((_, perguntaIndex) => respostas[`${secaoIndex}-${perguntaIndex}`]);
-        return Boolean(perguntasRespondidas && notasSecao[secaoIndex]);
+        return secoes[secaoIndex].perguntas.every((_, perguntaIndex) => respostas[`${secaoIndex}-${perguntaIndex}`]);
     }
 
     function mediaSecao(secaoIndex) {
-        const valoresEmojis = secoes[secaoIndex].perguntas.map((_, perguntaIndex) => respostas[`${secaoIndex}-${perguntaIndex}`]);
-        return calcularNotaSecao(notasSecao[secaoIndex], valoresEmojis);
+        const valores = secoes[secaoIndex].perguntas.map((_, perguntaIndex) => respostas[`${secaoIndex}-${perguntaIndex}`]);
+        return calcularNotaSecao(valores);
     }
 
     function mediaGeral() {
@@ -64,7 +51,7 @@ export default function Avaliacao() {
 
     function trocarSecao(index) {
         if (index > secaoAtual && !secaoCompleta(secaoAtual)) {
-            alert('Responda todas as perguntas e selecione a nota em estrelas desta seção antes de continuar.');
+            alert('Avalie todos os itens desta seção com as estrelas antes de continuar.');
             return;
         }
 
@@ -75,7 +62,7 @@ export default function Avaliacao() {
     async function finalizarAvaliacao() {
         const todasRespondidas = secoes.every((_, index) => secaoCompleta(index));
         if (!todasRespondidas) {
-            alert('Responda todas as perguntas e selecione as notas em estrelas antes de finalizar.');
+            alert('Avalie todos os itens de todas as seções antes de finalizar.');
             return;
         }
 
@@ -87,7 +74,6 @@ export default function Avaliacao() {
         const relatorio = criarRelatorioFinal({
             secoes,
             respostas,
-            notasSecao,
             observacoesSecoes,
             farmacia: farmaciaSelecionada
         });
@@ -102,7 +88,6 @@ export default function Avaliacao() {
                 body: JSON.stringify(montarPayloadAvaliacao({
                     secoes,
                     respostas,
-                    notasSecao,
                     observacoesSecoes,
                     farmacia: farmaciaSelecionada,
                     relatorio,
@@ -126,7 +111,7 @@ export default function Avaliacao() {
     const totalPerguntas = secoes.reduce((total, secao) => total + secao.perguntas.length, 0);
     const perguntasRespondidas = Object.keys(respostas).length;
     const mediaAtual = mediaSecao(secaoAtual);
-    const estrelasAtual = notasSecao[secaoAtual] || 0;
+    const secoesCompletas = secoes.filter((_, index) => secaoCompleta(index)).length;
 
     return (
         <main className="min-h-dvh bg-slate-50 text-slate-900">
@@ -139,7 +124,7 @@ export default function Avaliacao() {
                         <div>
                             <h1 className="text-2xl font-extrabold leading-tight text-blue-950 sm:text-3xl">Auditoria da unidade</h1>
                             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600 sm:text-base">
-                                Avalie cada seção com emojis e defina a nota final da seção em estrelas no bloco inferior.
+                                Avalie cada item de 1 a 5 estrelas. A nota da seção é a média dos itens.
                             </p>
                         </div>
 
@@ -153,7 +138,7 @@ export default function Avaliacao() {
                     </div>
 
                     <div className="mt-4 h-2 rounded-full bg-slate-100">
-                        <div className="h-2 rounded-full bg-blue-700 transition-all" style={{ width: `${(Object.keys(notasSecao).length / secoes.length) * 100}%` }} />
+                        <div className="h-2 rounded-full bg-blue-700 transition-all" style={{ width: `${(secoesCompletas / secoes.length) * 100}%` }} />
                     </div>
                 </section>
 
@@ -232,7 +217,7 @@ export default function Avaliacao() {
                         <div className="border-b border-slate-200 px-4 py-4 sm:px-6">
                             <p className="text-xs font-bold uppercase text-blue-900/70">Seção {secaoAtual + 1}</p>
                             <h2 className="mt-1 text-xl font-extrabold text-blue-950">{secoes[secaoAtual].titulo}</h2>
-                            <p className="mt-3 text-sm leading-6 text-slate-600">Marque cada item com emojis e defina a nota final da seção em estrelas no bloco inferior.</p>
+                            <p className="mt-3 text-sm leading-6 text-slate-600">Marque cada item de 1 a 5 estrelas. A nota da seção é calculada pela média dos itens.</p>
                         </div>
 
                         <div className="space-y-4 p-4 sm:p-6">
@@ -244,25 +229,25 @@ export default function Avaliacao() {
                                     <article key={pergunta} className="rounded-lg border border-slate-200 bg-slate-50 p-4 sm:p-5">
                                         <div className="flex flex-wrap items-center justify-between gap-2">
                                             <div>
-                                                <p className="text-xs font-bold uppercase text-slate-500">Pergunta {perguntaIndex + 1}</p>
+                                                <p className="text-xs font-bold uppercase text-slate-500">Item {perguntaIndex + 1}</p>
                                                 <h3 className="mt-1 text-base font-extrabold text-slate-900 sm:text-lg">{pergunta}</h3>
                                             </div>
-                                            <span className="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-bold text-slate-600">{respostaAtual ? emojis.find((item) => item.valor === respostaAtual)?.texto : 'Pendente'}</span>
+                                            <span className="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-xs font-bold text-slate-600">{respostaAtual ? `Nota ${respostaAtual}/5` : 'Pendente'}</span>
                                         </div>
 
-                                        <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
-                                            {emojis.map((item) => {
-                                                const selecionada = respostaAtual === item.valor;
+                                        <div className="mt-4 flex flex-wrap items-center gap-2">
+                                            {[1, 2, 3, 4, 5].map((valor) => {
+                                                const selecionada = respostaAtual >= valor;
 
                                                 return (
                                                     <button
-                                                        key={item.texto}
+                                                        key={valor}
                                                         type="button"
-                                                        onClick={() => avaliarPergunta(secaoAtual, perguntaIndex, item.valor)}
-                                                        className={`flex min-h-16 items-center gap-3 rounded-md border p-3 text-left transition hover:-translate-y-0.5 ${selecionada ? item.cor : 'border-slate-200 bg-white hover:border-sky-300'}`}
+                                                        onClick={() => avaliarPergunta(secaoAtual, perguntaIndex, valor)}
+                                                        className={`flex h-11 w-11 items-center justify-center rounded-md border transition ${selecionada ? 'border-amber-300 bg-amber-50 text-amber-500' : 'border-slate-200 bg-white text-slate-300 hover:border-sky-300 hover:text-amber-300'}`}
+                                                        aria-label={`${valor} estrela${valor > 1 ? 's' : ''} para ${pergunta}`}
                                                     >
-                                                        <span className="text-3xl leading-none">{item.emoji}</span>
-                                                        <span className={`text-sm font-bold ${selecionada ? 'text-inherit' : 'text-slate-700'}`}>{item.texto}</span>
+                                                        <Star className={`h-5 w-5 ${selecionada ? 'fill-amber-400' : ''}`} />
                                                     </button>
                                                 );
                                             })}
@@ -270,39 +255,6 @@ export default function Avaliacao() {
                                     </article>
                                 );
                             })}
-
-                            <article className="rounded-lg border border-slate-200 bg-white p-4 sm:p-5">
-                                <div className="flex items-center justify-between gap-3">
-                                    <div>
-                                        <p className="text-sm font-bold text-slate-700">Avaliação por estrelas da seção</p>
-                                        <p className="mt-1 text-xs text-slate-500">Essa nota define a média da seção e entra no relatório final.</p>
-                                    </div>
-                                    <span className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-bold text-slate-600">
-                                        {mediaAtual ? `${formatarNota(mediaAtual)}/5` : '0,0/5'}
-                                    </span>
-                                </div>
-
-                                <div className="mt-4 flex flex-wrap items-center gap-2">
-                                    {[1, 2, 3, 4, 5].map((valor) => {
-                                        const selecionada = estrelasAtual >= valor;
-
-                                        return (
-                                            <button
-                                                key={valor}
-                                                type="button"
-                                                onClick={() => avaliarSecao(secaoAtual, valor)}
-                                                className={`flex h-11 w-11 items-center justify-center rounded-md border transition ${selecionada ? 'border-amber-300 bg-amber-50 text-amber-500' : 'border-slate-200 bg-white text-slate-300 hover:border-sky-300 hover:text-amber-300'}`}
-                                                aria-label={`${valor} estrela${valor > 1 ? 's' : ''}`}
-                                            >
-                                                <Star className={`h-5 w-5 ${selecionada ? 'fill-amber-400' : ''}`} />
-                                            </button>
-                                        );
-                                    })}
-                                    <span className="flex items-center self-center text-sm font-semibold text-slate-500">
-                                        {estrelasAtual ? `Nota ${estrelasAtual}` : 'Selecione a nota'}
-                                    </span>
-                                </div>
-                            </article>
 
                             <article className="rounded-lg border border-slate-200 bg-white p-4 sm:p-5">
                                 <label className="block">
@@ -345,7 +297,7 @@ export default function Avaliacao() {
     );
 }
 
-function montarPayloadAvaliacao({ secoes, respostas, notasSecao, observacoesSecoes, farmacia, relatorio, localizacao }) {
+function montarPayloadAvaliacao({ secoes, respostas, observacoesSecoes, farmacia, relatorio, localizacao }) {
     const respostasDetalhadas = secoes.flatMap((secao, secaoIndex) => (
         secao.perguntas.map((pergunta, perguntaIndex) => ({
             secao: secao.titulo,
@@ -370,7 +322,6 @@ function montarPayloadAvaliacao({ secoes, respostas, notasSecao, observacoesSeco
         estado: farmacia.uf || null,
         observacao: observacoes || null,
         respostas: respostasDetalhadas,
-        notasSecao,
         notaGeral: relatorio.mediaGeral,
         localizacao_ativa: true,
         latitude: localizacao.latitude,

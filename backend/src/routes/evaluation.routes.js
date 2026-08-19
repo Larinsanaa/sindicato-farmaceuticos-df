@@ -26,4 +26,11 @@ routes.get(
   EvaluationController.detail
 );
 
+routes.post(
+  '/avaliacoes/:id/enviar-email',
+  authMiddleware,
+  checkRole('presidente', 'avaliador'),
+  EvaluationController.sendEmail
+);
+
 export default routes;

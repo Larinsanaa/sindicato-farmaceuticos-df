@@ -1,4 +1,5 @@
 import EvaluationModel from '../models/evaluation.model.js';
+import EmailService from '../services/email.service.js';
 import { validarAvaliacao, validarLocalizacao, processarRespostas } from '../utils/evaluation.util.js';
 
 class EvaluationController {
@@ -81,6 +82,31 @@ class EvaluationController {
     } catch (error) {
       console.error('Erro ao buscar avaliação:', error);
       return res.status(500).json({ error: 'Erro ao buscar avaliação.' });
+    }
+  }
+
+  async sendEmail(req, res) {
+    try {
+      const { id } = req.params;
+      const evaluation = await EvaluationModel.findById(id);
+
+      if (!evaluation) {
+        return res.status(404).json({ error: 'Avaliação não encontrada.' });
+      }
+
+      if (req.userRole !== 'presidente' && String(evaluation.avaliador_id) !== String(req.userId)) {
+        return res.status(403).json({ error: 'Você não tem permissão para enviar esta avaliação.' });
+      }
+
+      const responses = await EvaluationModel.findResponsesByEvaluationId(id);
+      const resultado = await EmailService.enviarRelatorio(evaluation, responses);
+
+      return res.json({ message: `Relatório enviado para ${resultado.destinatario}.` });
+    } catch (error) {
+      console.error('Erro ao enviar relatório por e-mail:', error);
+      const status = error.statusCode || 500;
+      const mensagem = error.statusCode ? error.message : 'Não foi possível enviar o e-mail. Tente novamente.';
+      return res.status(status).json({ error: mensagem });
     }
   }
 }

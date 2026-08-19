@@ -478,7 +478,7 @@ export default function Dashboard() {
                                                     <td className="px-5 py-4">
                                                         <div className="flex justify-end gap-2">
                                                             <Acao icone={<Eye />} titulo="Visualizar" onClick={() => navigate(`/relatorio-avaliacao/${avaliacao.id}`)} />
-                                                            <Acao icone={<Download />} titulo="Exportar PDF" onClick={(evento) => exportar(evento, avaliacao)} />
+                                                            <Acao icone={<Download />} titulo="Visualizar PDF" onClick={(evento) => exportar(evento, avaliacao)} />
                                                         </div>
                                                     </td>
                                                 </tr>

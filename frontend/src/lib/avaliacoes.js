@@ -88,8 +88,7 @@ function normalizarCriterios(item) {
     }, {});
 
     return Object.entries(grupos).map(([nome, grupo]) => {
-        const media = grupo.quantidade > 0 ? grupo.soma / grupo.quantidade : 0;
-        const nota = ((3 - media) / 2) * 4 + 1; // 1=Ótimo..3=Ruim -> escala 1 a 5
+        const nota = grupo.quantidade > 0 ? grupo.soma / grupo.quantidade : 0; // média das estrelas (1 a 5)
         const valor = Math.max(0, Math.min(100, ((nota - 1) / 4) * 100));
 
         return {
@@ -133,13 +132,13 @@ export function gerarResumoExecutivo({ respostas = [], notaGeral, classificacao,
         }
     }
 
-    const itensCriticos = respostas.filter((item) => Number(item.valor) === 3).length;
+    const itensCriticos = respostas.filter((item) => Number(item.valor) > 0 && Number(item.valor) <= 2).length;
     if (itensCriticos > 0) {
         frases.push(itensCriticos === 1
-            ? '1 item recebeu avaliação "Ruim" e demanda ação corretiva prioritária.'
-            : `${itensCriticos} itens receberam avaliação "Ruim" e demandam ação corretiva prioritária.`);
+            ? '1 item recebeu nota baixa (2 estrelas ou menos) e demanda ação corretiva prioritária.'
+            : `${itensCriticos} itens receberam nota baixa (2 estrelas ou menos) e demandam ação corretiva prioritária.`);
     } else {
-        frases.push('Nenhum item recebeu avaliação "Ruim" durante a verificação.');
+        frases.push('Nenhum item recebeu nota baixa durante a verificação.');
     }
 
     return frases.join(' ');
@@ -203,6 +202,6 @@ export function normalizarDetalheAvaliacao(payload, fallback = null) {
         id: String(avaliacao?.id ?? fallback?.id ?? ''),
         respostas,
         totalItens: respostas.length,
-        itensCriticos: respostas.filter((item) => Number(item.valor) === 3).length
+        itensCriticos: respostas.filter((item) => Number(item.valor) > 0 && Number(item.valor) <= 2).length
     };
 }
