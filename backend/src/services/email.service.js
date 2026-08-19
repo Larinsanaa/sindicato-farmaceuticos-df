@@ -1,4 +1,5 @@
 import nodemailer from 'nodemailer';
+import { gerarPdfRelatorio } from './pdfRelatorio.service.js';
 
 // Envio do relatório por e-mail via Gmail (senha de app).
 // Variáveis necessárias (backend/.env local, Environment Variables na Vercel):
@@ -29,72 +30,42 @@ function corPorNota(nota) {
   return '#16a34a';
 }
 
-function estrelasHtml(nota) {
-  const cheias = Math.max(0, Math.min(5, Number(nota) || 0));
-  return `<span style="color:#f59e0b;letter-spacing:2px;">${'★'.repeat(cheias)}</span><span style="color:#cbd5e1;letter-spacing:2px;">${'★'.repeat(5 - cheias)}</span>`;
-}
-
-function montarHtmlRelatorio(avaliacao, respostas) {
-  const porSecao = new Map();
-  (respostas || []).forEach((item) => {
-    const secao = item.secao || 'Seção';
-    if (!porSecao.has(secao)) porSecao.set(secao, []);
-    porSecao.get(secao).push(item);
-  });
-
-  const blocosSecoes = [...porSecao.entries()].map(([secao, itens]) => {
-    const media = itens.reduce((soma, item) => soma + Number(item.valor || 0), 0) / itens.length;
-    const linhas = itens.map((item) => {
-      const nota = Number(item.valor) || 0;
-      return `
-      <tr>
-        <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;">${escaparHtml(item.pergunta)}</td>
-        <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;text-align:right;white-space:nowrap;">${estrelasHtml(nota)}</td>
-        <td style="padding:8px 10px;border-bottom:1px solid #e2e8f0;text-align:right;font-weight:bold;color:${corPorNota(nota)};">${nota || '-'}</td>
-      </tr>
-    `;
-    }).join('');
-
-    return `
-      <h3 style="margin:18px 0 6px;color:#1d4ed8;font-size:13px;text-transform:uppercase;letter-spacing:.04em;">
-        ${escaparHtml(secao)} — <span style="color:${corPorNota(media)};">média ${formatarNota(media)}</span>
-      </h3>
-      <table style="width:100%;border-collapse:collapse;font-size:13px;color:#0f172a;">
-        ${linhas}
-      </table>
-    `;
-  }).join('');
-
+// Corpo do e-mail: mensagem curta e formal — o relatório completo vai no PDF anexo.
+function montarMensagemEmail(avaliacao) {
   const nomeAvaliador = avaliacao.avaliador?.nome || 'Não identificado';
   const cidadeUf = [avaliacao.cidade, avaliacao.estado].filter(Boolean).join(' - ');
+  const dataAvaliacao = new Date(avaliacao.created_at).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' });
 
   return `
-  <div style="font-family:Arial,Helvetica,sans-serif;max-width:640px;margin:0 auto;color:#0f172a;">
-    <div style="height:6px;background:linear-gradient(90deg,#082f68,#1d4ed8,#b08d18);border-radius:999px;margin-bottom:16px;"></div>
-    <p style="margin:0;color:#1d4ed8;font-size:11px;font-weight:bold;text-transform:uppercase;letter-spacing:.08em;">Sincofarma-DF</p>
-    <h1 style="margin:6px 0 4px;color:#071d49;font-size:22px;">Relatório de Avaliação — ${escaparHtml(avaliacao.farmacia)}</h1>
-    <p style="margin:2px 0;color:#475569;font-size:13px;"><strong>Farmácia:</strong> ${escaparHtml(avaliacao.farmacia)}</p>
-    <p style="margin:2px 0;color:#475569;font-size:13px;"><strong>CNPJ:</strong> ${escaparHtml(avaliacao.cnpj)}</p>
-    <p style="margin:2px 0;color:#475569;font-size:13px;"><strong>Endereço:</strong> ${escaparHtml(avaliacao.endereco)}</p>
-    ${cidadeUf ? `<p style="margin:2px 0;color:#475569;font-size:13px;"><strong>Cidade:</strong> ${escaparHtml(cidadeUf)}</p>` : ''}
-    <p style="margin:2px 0;color:#475569;font-size:13px;"><strong>Avaliador:</strong> ${escaparHtml(nomeAvaliador)}</p>
-    <p style="margin:2px 0 12px;color:#475569;font-size:13px;"><strong>Data da avaliação:</strong> ${new Date(avaliacao.created_at).toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' })}</p>
-
-    <div style="border:1px solid #bfdbfe;background:#eff6ff;border-radius:12px;padding:14px;text-align:center;margin-bottom:14px;">
-      <span style="display:block;color:#475569;font-size:11px;font-weight:bold;text-transform:uppercase;">Nota geral</span>
-      <span style="display:block;color:#1d4ed8;font-size:30px;font-weight:bold;margin:4px 0;">${formatarNota(avaliacao.nota_geral)}</span>
-      <span style="display:block;color:#475569;font-size:12px;font-weight:bold;">${escaparHtml(avaliacao.classificacao || '')}</span>
-    </div>
-
-    <h2 style="margin:0 0 6px;color:#071d49;font-size:15px;">Resumo executivo</h2>
-    <p style="margin:0 0 12px;color:#475569;font-size:13px;line-height:1.6;">${escaparHtml(avaliacao.resumo || 'Sem resumo informado.')}</p>
-    ${avaliacao.observacao ? `<p style="margin:0 0 12px;color:#475569;font-size:13px;"><strong>Observações:</strong><br>${escaparHtml(avaliacao.observacao).replaceAll('\n', '<br>')}</p>` : ''}
-
-    <h2 style="margin:16px 0 0;color:#071d49;font-size:15px;">Questionário completo</h2>
-    ${blocosSecoes || '<p style="color:#475569;font-size:13px;">Sem itens registrados.</p>'}
-
+  <div style="font-family:Arial,Helvetica,sans-serif;max-width:560px;margin:0 auto;color:#0f172a;">
+    <div style="height:6px;background:linear-gradient(90deg,#082f68,#1d4ed8,#b08d18);border-radius:999px;margin-bottom:18px;"></div>
+    <p style="margin:0 0 4px;color:#1d4ed8;font-size:11px;font-weight:bold;text-transform:uppercase;letter-spacing:.08em;">Sincofarma-DF</p>
+    <p style="margin:0 0 16px;color:#0f172a;font-size:14px;line-height:1.65;">
+      Prezado(a),
+    </p>
+    <p style="margin:0 0 16px;color:#0f172a;font-size:14px;line-height:1.65;">
+      Segue em anexo o relatório da avaliação realizada na farmácia
+      <strong>${escaparHtml(avaliacao.farmacia)}</strong>${cidadeUf ? ` (${escaparHtml(cidadeUf)})` : ''},
+      concluída em ${escaparHtml(dataAvaliacao)} pelo avaliador
+      <strong>${escaparHtml(nomeAvaliador)}</strong>.
+    </p>
+    <table style="border-collapse:collapse;margin:0 0 16px;">
+      <tr>
+        <td style="border:1px solid #bfdbfe;background:#eff6ff;border-radius:10px;padding:10px 22px;text-align:center;">
+          <span style="display:block;color:#475569;font-size:10px;font-weight:bold;text-transform:uppercase;">Nota geral</span>
+          <span style="display:block;color:#1d4ed8;font-size:26px;font-weight:bold;margin:2px 0;">${formatarNota(avaliacao.nota_geral)}</span>
+          <span style="display:block;color:${corPorNota(avaliacao.nota_geral)};font-size:11px;font-weight:bold;">${escaparHtml(avaliacao.classificacao || '')}</span>
+        </td>
+      </tr>
+    </table>
+    <p style="margin:0 0 16px;color:#0f172a;font-size:14px;line-height:1.65;">
+      O documento em PDF contém o resumo executivo, as observações do avaliador e o
+      questionário completo, item a item.
+    </p>
+    <p style="margin:0 0 4px;color:#0f172a;font-size:14px;line-height:1.65;">Atenciosamente,</p>
+    <p style="margin:0;color:#0f172a;font-size:14px;font-weight:bold;">Sistema de Avaliações Sincofarma-DF</p>
     <p style="margin-top:20px;border-top:1px solid #e2e8f0;padding-top:10px;color:#64748b;font-size:11px;">
-      Relatório gerado automaticamente pelo Sistema do Sincofarma-DF.
+      Mensagem automática — não é necessário responder.
     </p>
   </div>
   `;
@@ -125,11 +96,17 @@ class EmailService {
       }
     });
 
+    const pdf = await gerarPdfRelatorio(avaliacao, respostas);
+    const nomeArquivo = `relatorio-${String(avaliacao.farmacia || 'avaliacao')
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-zA-Z0-9]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase() || 'avaliacao'}.pdf`;
+
     await transporter.sendMail({
       from: `"Sistema Sincofarma-DF" <${process.env.EMAIL_REMETENTE.trim()}>`,
       to: process.env.EMAIL_DESTINATARIO.trim(),
       subject: `Relatório de avaliação — ${avaliacao.farmacia} — nota ${formatarNota(avaliacao.nota_geral)} (${avaliacao.classificacao || 'sem classificação'})`,
-      html: montarHtmlRelatorio(avaliacao, respostas)
+      html: montarMensagemEmail(avaliacao),
+      attachments: [{ filename: nomeArquivo, content: pdf, contentType: 'application/pdf' }]
     });
 
     return { destinatario: process.env.EMAIL_DESTINATARIO.trim() };
