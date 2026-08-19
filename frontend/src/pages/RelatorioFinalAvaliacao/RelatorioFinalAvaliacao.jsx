@@ -437,39 +437,32 @@ function montarHtmlPdf(relatorio, destaques) {
     // agrupado por seção — pedido do cliente pra não ficar resumido.
     const questionario = (relatorio.secoes || [])
         .map((secao) => {
-            const linhas = (secao.perguntas || [])
+            const itens = (secao.perguntas || [])
                 .map((item) => {
                     const nota = Math.max(0, Math.min(5, Number(item.nota) || 0));
-                    const percentual = percentualPorMedia(nota);
 
                     return `
-                    <tr>
-                        <td>${escapeHtml(item.pergunta)}</td>
-                        <td class="score">${nota} / 5</td>
-                        <td>
-                            <div class="progress" aria-hidden="true">
-                                <span style="width:${percentual}%"></span>
-                            </div>
-                        </td>
-                    </tr>
+                    <div class="quest-item">
+                        <span class="quest-nome">${escapeHtml(item.pergunta)}</span>
+                        <span class="quest-nota">
+                            <span class="estrelas" aria-hidden="true"><span class="cheias">${'★'.repeat(nota)}</span><span class="vazias">${'★'.repeat(5 - nota)}</span></span>
+                            <span class="quest-valor" style="color:${corPorNotaPdf(nota)};">${nota}</span>
+                        </span>
+                    </div>
                 `;
                 })
                 .join('');
 
-            if (!linhas) return '';
+            if (!itens) return '';
 
             return `
-            <h3 class="secao-titulo">${escapeHtml(secao.titulo)} — média ${escapeHtml(secao.mediaTexto)}</h3>
-            <table>
-                <thead>
-                    <tr>
-                        <th>Item avaliado</th>
-                        <th>Nota</th>
-                        <th>Indicador</th>
-                    </tr>
-                </thead>
-                <tbody>${linhas}</tbody>
-            </table>
+            <div class="quest-card">
+                <div class="quest-head">
+                    <span class="quest-secao">${escapeHtml(secao.titulo)}</span>
+                    <span class="quest-media" style="background:${corPorNotaPdf(secao.media)}1a;color:${corPorNotaPdf(secao.media)};">média ${escapeHtml(secao.mediaTexto)}</span>
+                </div>
+                ${itens}
+            </div>
         `;
         })
         .join('');
@@ -737,12 +730,91 @@ function montarHtmlPdf(relatorio, destaques) {
             text-align: center;
         }
 
-        .secao-titulo {
-            margin: 14px 0 6px;
-            color: #1d4ed8;
+        .quest-legenda {
+            margin: -4px 0 10px;
+            color: #64748b;
             font-size: 11px;
-            letter-spacing: .04em;
+        }
+
+        .quest-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .quest-card {
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 12px 14px;
+            background: #f8fafc;
+            break-inside: avoid;
+        }
+
+        .quest-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            border-bottom: 1px solid #e2e8f0;
+            padding-bottom: 8px;
+            margin-bottom: 4px;
+        }
+
+        .quest-secao {
+            color: #071d49;
+            font-size: 12px;
+            font-weight: 800;
             text-transform: uppercase;
+            letter-spacing: .04em;
+        }
+
+        .quest-media {
+            border-radius: 999px;
+            padding: 3px 10px;
+            font-size: 10px;
+            font-weight: 800;
+            white-space: nowrap;
+        }
+
+        .quest-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            padding: 7px 0;
+            border-bottom: 1px dashed #e2e8f0;
+        }
+
+        .quest-item:last-child {
+            border-bottom: none;
+            padding-bottom: 2px;
+        }
+
+        .quest-nome {
+            color: #0f172a;
+            font-size: 12px;
+        }
+
+        .quest-nota {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            white-space: nowrap;
+        }
+
+        .estrelas {
+            font-size: 13px;
+            letter-spacing: 2px;
+        }
+
+        .estrelas .cheias { color: #f59e0b; }
+        .estrelas .vazias { color: #cbd5e1; }
+
+        .quest-valor {
+            min-width: 14px;
+            font-size: 12px;
+            font-weight: 800;
+            text-align: right;
         }
 
         @media print {
@@ -818,7 +890,10 @@ function montarHtmlPdf(relatorio, destaques) {
         ${questionario ? `
         <section class="card" style="margin-top:16px;">
             <h2>Questionário completo</h2>
-            ${questionario}
+            <p class="quest-legenda">Cada item foi avaliado de 1 a 5 estrelas pelo avaliador.</p>
+            <div class="quest-grid">
+                ${questionario}
+            </div>
         </section>` : ''}
 
         <div class="grid" style="margin-top:16px; grid-template-columns: 1fr 1fr;">
@@ -879,6 +954,14 @@ function formatarDataHora(valor) {
         hour: '2-digit',
         minute: '2-digit'
     }).format(data);
+}
+
+// Cor de destaque conforme a nota: vermelho (crítico), âmbar (atenção), verde (bom).
+function corPorNotaPdf(nota) {
+    const numero = Number(nota) || 0;
+    if (numero <= 2) return '#dc2626';
+    if (numero < 4) return '#d97706';
+    return '#16a34a';
 }
 
 function percentualPorMedia(media) {
