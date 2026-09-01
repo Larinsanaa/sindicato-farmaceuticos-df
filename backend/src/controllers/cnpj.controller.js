@@ -81,6 +81,31 @@ async function geocodificarEndereco(dados) {
   return null;
 }
 
+// Só farmácia/drogaria pode ser avaliada. O grupo 4771-7 da CNAE é o comércio
+// varejista de produtos farmacêuticos (com e sem manipulação, homeopáticos e
+// veterinários). Vale como atividade principal ou secundária do CNPJ.
+const CNAE_FARMACIA = '4771';
+
+function ehFarmacia(dados) {
+  const principal = String(dados.cnae_fiscal || '');
+  const secundarios = Array.isArray(dados.cnaes_secundarios) ? dados.cnaes_secundarios : [];
+
+  return principal.startsWith(CNAE_FARMACIA)
+    || secundarios.some((item) => String(item.codigo || '').startsWith(CNAE_FARMACIA));
+}
+
+// CNPJ baixado, inapto ou suspenso não abre avaliação. A BrasilAPI devolve a
+// descrição "ATIVA" (e o código 2) para empresa regular.
+function estaAtiva(dados) {
+  const descricao = String(dados.descricao_situacao_cadastral || '').trim().toUpperCase();
+
+  if (descricao) {
+    return descricao === 'ATIVA';
+  }
+
+  return Number(dados.situacao_cadastral) === 2;
+}
+
 // Consulta os dados de um CNPJ na BrasilAPI pelo servidor.
 // Feito no backend porque a chamada direta do navegador falha quando a
 // BrasilAPI responde sem o header CORS (rate limit/erro) ou quando extensões
@@ -107,6 +132,23 @@ async function lookup(req, res) {
     }
 
     const dados = await resposta.json();
+
+    if (!ehFarmacia(dados)) {
+      const atividade = dados.cnae_fiscal_descricao
+        ? ` A atividade registrada na Receita Federal é: ${dados.cnae_fiscal_descricao}.`
+        : '';
+      return res.status(422).json({
+        error: `Este CNPJ não é de farmácia ou drogaria, por isso não pode ser avaliado.${atividade}`
+      });
+    }
+
+    if (!estaAtiva(dados)) {
+      const situacao = String(dados.descricao_situacao_cadastral || 'irregular').toLowerCase();
+      return res.status(422).json({
+        error: `Este CNPJ está com a situação cadastral ${situacao} na Receita Federal. Só é possível avaliar farmácia com CNPJ ativo.`
+      });
+    }
+
     const coordenadas = await geocodificarEndereco(dados);
     return res.json({ ...dados, localizacao: coordenadas });
   } catch {
